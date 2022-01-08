@@ -1,4 +1,4 @@
-"""ANNtf2_algorithmSANIoperations.py
+"""SANItf2_algorithmSANIoperations.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
@@ -7,20 +7,20 @@ Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see ANNtf2.py
+see SANItf2.py
 
 # Usage:
-see ANNtf2.py
+see SANItf2.py
 
 # Description:
-ANNtf algorithm SANI (Sequentially Activated Neuronal Input) operations
+SANItf algorithm SANI (Sequentially Activated Neuronal Input) operations
 
 """
 
 import tensorflow as tf
 import numpy as np
 import ANNtf2_globalDefs
-from ANNtf2_algorithmSANIglobalDefs import *
+from SANItf2_algorithmSANIglobalDefs import *
 from ANNtf2_operations import * #generateParameterNameSeq, generateParameterName
 
 

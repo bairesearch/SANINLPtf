@@ -1,4 +1,4 @@
-"""ANNtf2_algorithmSANIglobalDefs.py
+"""SANItf2_algorithmSANIglobalDefs.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
@@ -7,13 +7,13 @@ Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see ANNtf2.py
+see SANItf2.py
 
 # Usage:
-see ANNtf2.py
+see SANItf2.py
 
 # Description:
-ANNtf algorithm SANI (Sequentially Activated Neuronal Input) global definitions
+SANItf algorithm SANI (Sequentially Activated Neuronal Input) global definitions
 
 """
 

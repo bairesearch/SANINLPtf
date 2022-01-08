@@ -1,4 +1,4 @@
-"""ANNtf2_algorithmSANIsharedModulesBinary.py
+"""SANItf2_algorithmSANIsharedModulesBinary.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
@@ -7,25 +7,25 @@ Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see ANNtf2.py
+see SANItf2.py
 
 # Usage:
-see ANNtf2.py
+see SANItf2.py
 
 # Description:
-ANNtf algorithm SANI shared modules binary - define Sequentially Activated Neuronal Input neural network with shared modules and binary weights and activation signals
+SANItf algorithm SANI shared modules binary - define Sequentially Activated Neuronal Input neural network with shared modules and binary weights and activation signals
 
 See shared modules
 
 """
 
-#start common ANNtf2_algorithmSANI.py code:
+#start common SANItf2_algorithmSANI.py code:
 
 import tensorflow as tf
 import numpy as np
 from ANNtf2_operations import * #generateParameterNameSeq, generateParameterName
-import ANNtf2_algorithmSANIoperations
-from ANNtf2_algorithmSANIglobalDefs import *
+import SANItf2_algorithmSANIoperations
+from SANItf2_algorithmSANIglobalDefs import *
 import ANNtf2_globalDefs
 
 
@@ -89,15 +89,15 @@ def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddin
 def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord):
 	global n_h
 	global numberOfLayers
-	n_h, numberOfLayers = ANNtf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
-	return ANNtf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
+	return SANItf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
 	
 
 def defineNeuralNetworkParameters():
 	global n_h_cumulative
-	ANNtf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
+	SANItf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
 			
 
 #temporary variables for neuralNetworkPropagationSANI:
@@ -116,7 +116,7 @@ if(algorithmSANI == "sharedModulesBinary"):
 	sequentialActivationFound = {}
 	AseqInputVerified = {}
 
-#end common ANNtf2_algorithmSANI.py code
+#end common SANItf2_algorithmSANI.py code
 
 
 def neuralNetworkPropagation(x, networkIndex=None):
@@ -191,7 +191,7 @@ def neuralNetworkPropagationSANI(x):
 			Zseq[generateParameterNameSeq(l, s, "Zseq")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), dtype=tf.bool), dtype=tf.bool)	#A=Z for binary activations
 			Aseq[generateParameterNameSeq(l, s, "Aseq")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), dtype=tf.bool), dtype=tf.bool)	#A=Z for binary activations
 			if(recordSubInputsWeighted):
-				numberSubinputsPerSequentialInput = ANNtf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
+				numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
 				AseqInputVerified[generateParameterNameSeq(l, s, "AseqInputVerified")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, numberSubinputsPerSequentialInput, n_h[l]]), dtype=tf.bool), dtype=tf.bool)
 			
 			
@@ -307,7 +307,7 @@ def neuralNetworkPropagationSANI(x):
 				#ensure that T continguous constraint is met;
 				#NO: take the max subinput pathway only (ie matrix mult but with max() rather than sum() for each dot product)
 				if(s > 0):
-					numberSubinputsPerSequentialInput = ANNtf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
+					numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
 					multiples = tf.constant([1,numberSubinputsPerSequentialInput,1], tf.int32)
 
 					if(enforceTcontiguityBetweenSequentialInputs):
@@ -340,7 +340,7 @@ def neuralNetworkPropagationSANI(x):
 					if(resetSequentialInputsIfOnlyFirstInputValid):
 						#only reset first sequential input if TMaxSeqInput > TMax[l]
 
-						numberSubinputsPerSequentialInput = ANNtf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
+						numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
 						multiples = tf.constant([1,numberSubinputsPerSequentialInput,1], tf.int32)
 						
 						TMaxtiled = tf.tile(tf.reshape(TMax[generateParameterName(l, "TMax")], [batchSize, 1, n_h[l]]), multiples)
@@ -466,7 +466,7 @@ def neuralNetworkPropagationSANI(x):
 				if(recordSubInputsWeighted):
 					#apply sequential verification matrix to AseqInput (rather than ZseqHypothetical) to record the precise subinputs that resulted in a sequential input being activated:
 					
-					numberSubinputsPerSequentialInput = ANNtf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
+					numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
 					multiples = tf.constant([1,numberSubinputsPerSequentialInput,1], tf.int32)
 					
 					VseqBoolTiled =  tf.tile(tf.reshape(VseqBool, [batchSize, 1, n_h[l]]), multiples)
@@ -487,7 +487,7 @@ def neuralNetworkPropagationSANI(x):
 					if(recordNetworkWeights):
 						if(recordSubInputsWeighted):
 							for s2 in range(numberOfSequentialInputs):
-								numberSubinputsPerSequentialInput = ANNtf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s2)
+								numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s2)
 								multiples = tf.constant([1,numberSubinputsPerSequentialInput,1], tf.int32)
 								neuronNewlyActivatedTiled = tf.tile(tf.reshape(ZseqPassThresold, [batchSize, 1, n_h[l]]), multiples)	#or; VseqBool (since will be logically anded with AseqInputVerified)
 

@@ -1,4 +1,4 @@
-"""ANNtf2_algorithmSANIrepeatedModules.py
+"""SANItf2_algorithmSANIrepeatedModules.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
@@ -7,25 +7,25 @@ Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see ANNtf2.py
+see SANItf2.py
 
 # Usage:
-see ANNtf2.py
+see SANItf2.py
 
 # Description:
-ANNtf algorithm SANI repeated modules - define Sequentially Activated Neuronal Input neural network with repeated modules
+SANItf algorithm SANI repeated modules - define Sequentially Activated Neuronal Input neural network with repeated modules
 
 Neural modules cannot be shared between different areas of input sequence.
 
 """
 
-#start common ANNtf2_algorithmSANI.py code:
+#start common SANItf2_algorithmSANI.py code:
 
 import tensorflow as tf
 import numpy as np
 from ANNtf2_operations import * #generateParameterNameSeq, generateParameterName
-import ANNtf2_algorithmSANIoperations
-from ANNtf2_algorithmSANIglobalDefs import *
+import SANItf2_algorithmSANIoperations
+from SANItf2_algorithmSANIglobalDefs import *
 import ANNtf2_globalDefs
 
 
@@ -89,22 +89,22 @@ def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddin
 def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord):
 	global n_h
 	global numberOfLayers
-	n_h, numberOfLayers = ANNtf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
-	return ANNtf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
+	return SANItf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
 	
 
 def defineNeuralNetworkParameters():
 	global n_h_cumulative
-	ANNtf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
+	SANItf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
 			
 
 #temporary variables for neuralNetworkPropagationSANI:
 if(algorithmSANI == "repeatedModules"):
 	pass
 
-#end common ANNtf2_algorithmSANI.py code
+#end common SANItf2_algorithmSANI.py code
 
 
 def neuralNetworkPropagation(x, networkIndex=None):

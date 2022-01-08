@@ -1,4 +1,4 @@
-"""ANNtf2_algorithmSANIsharedModulesHebbian.py
+"""SANItf2_algorithmSANIsharedModulesHebbian.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
@@ -7,16 +7,16 @@ Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see ANNtf2.py
+see SANItf2.py
 
 # Usage:
-see ANNtf2.py
+see SANItf2.py
 
 # Description:
-ANNtf algorithm SANI shared modules hebbian - define Sequentially Activated Neuronal Input neural network with shared modules and hebbian update learning rule
+SANItf algorithm SANI shared modules hebbian - define Sequentially Activated Neuronal Input neural network with shared modules and hebbian update learning rule
 
 See shared modules
-ANNtf2_algorithmSANIsharedModulesHebbian has been developed with the following features:
+SANItf2_algorithmSANIsharedModulesHebbian has been developed with the following features:
 	useHebbianLearningRuleApply: includes hebbian learning algorithm
 	!enforceTcontiguityConstraints: no time/word index contiguity requirements (only sequentiality of neuronal inputs are enforced)
 	supportFullConnectivity: supports full connectivity between layers (including supportSkipLayers)
@@ -25,13 +25,13 @@ ANNtf2_algorithmSANIsharedModulesHebbian has been developed with the following f
 	
 """
 
-#start common ANNtf2_algorithmSANI.py code:
+#start common SANItf2_algorithmSANI.py code:
 
 import tensorflow as tf
 import numpy as np
 from ANNtf2_operations import * #generateParameterNameSeq, generateParameterName
-import ANNtf2_algorithmSANIoperations
-from ANNtf2_algorithmSANIglobalDefs import *
+import SANItf2_algorithmSANIoperations
+from SANItf2_algorithmSANIglobalDefs import *
 import ANNtf2_globalDefs
 
 
@@ -95,15 +95,15 @@ def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddin
 def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord):
 	global n_h
 	global numberOfLayers
-	n_h, numberOfLayers = ANNtf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
-	return ANNtf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
+	return SANItf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
 	
 
 def defineNeuralNetworkParameters():
 	global n_h_cumulative
-	ANNtf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
+	SANItf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
 			
 
 #temporary variables for neuralNetworkPropagationSANI:
@@ -118,7 +118,7 @@ if(algorithmSANI == "sharedModulesHebbian"):
 		if(useHebbianLearningRuleApply):
 			WseqDelta = {}	#prospective weights update
 
-#end common ANNtf2_algorithmSANI.py code
+#end common SANItf2_algorithmSANI.py code
 
 
 def neuralNetworkPropagation(x, networkIndex=None):
@@ -130,7 +130,7 @@ def neuralNetworkPropagationSANI(x):
 	
 	#print("x.shape = ", x.shape)	
 	
-	#note ANNtf2_algorithmSANIsharedModulesHebbian does not use time/contiguity checks
+	#note SANItf2_algorithmSANIsharedModulesHebbian does not use time/contiguity checks
 		
 	#definitions for reference:
 	
@@ -289,7 +289,7 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 				VseqExisting = tf.fill([batchSize, n_h[l]], True)	#all values of Vseq0_l are always set to 1 as they have no sequential dependencies		
 			else:
 				VseqPrevTest = VseqPrev
-				#note ANNtf2_algorithmSANIsharedModulesHebbian does not use time/word index contiguity checks
+				#note SANItf2_algorithmSANIsharedModulesHebbian does not use time/word index contiguity checks
 				VseqExisting = VseqPrevTest	#if previous sequentiality check fails, then all future sequentiality checks must fail	
 			
 			VseqFloat = tf.dtypes.cast(VseqExisting, tf.float32)
