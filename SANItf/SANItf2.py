@@ -1,7 +1,7 @@
 """SANItf2.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2020-2022 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -37,23 +37,28 @@ import ANNtf2_globalDefs
 from numpy import random
 import ANNtf2_loadDataset
 from SANItf2_algorithmSANIglobalDefs import algorithmSANI
+import SANItf2_algorithmSANIglobalDefs
 
 #select algorithm:
 algorithm = "SANI"	#sequentially activated neuronal input artificial neural network	#incomplete+non-convergent
 
 suppressGradientDoNotExistForVariablesWarnings = True
 
-costCrossEntropyWithLogits = False
+if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
+	costCrossEntropyWithLogits = False
+else:
+	costCrossEntropyWithLogits = True	#binary categorisation
+
 if(algorithm == "SANI"):
-	#set algorithmSANI in SANItf2_algorithmSANIoperations
-	if(algorithmSANI == "sharedModulesHebbian"):
-		import SANItf2_algorithmSANIsharedModulesHebbian as SANItf2_algorithm
-		#no cost function used
+	#set algorithmSANI in SANItf2_algorithmSANIglobalDefs
+	if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
+		import SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity as SANItf2_algorithm
+		#if(not useHebbianLearningRule):	#no optimisation/cost function used
 	elif(algorithmSANI == "sharedModulesBinary"):
 		import SANItf2_algorithmSANIsharedModulesBinary as SANItf2_algorithm
 	elif(algorithmSANI == "sharedModules"):
-		import SANItf2_algorithmSANIsharedModules as SANItf2_algorithm
 		costCrossEntropyWithLogits = True
+		import SANItf2_algorithmSANIsharedModules as SANItf2_algorithm
 	elif(algorithmSANI == "repeatedModules"):
 		import SANItf2_algorithmSANIrepeatedModules as SANItf2_algorithm
 	
@@ -80,48 +85,53 @@ if(trainMultipleFiles):
 #if generatePOSunambiguousInput=False and onlyAddPOSunambiguousInputToTrain=False, requires simultaneous propagation of different (ambiguous) POS possibilities
 
 if(algorithm == "SANI"):
-	if(SANItf2_algorithm.algorithmSANI == "sharedModulesHebbian"):
+	if(SANItf2_algorithm.algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 		if(SANItf2_algorithm.SANIsharedModules):	#optional
-			dataset = "POStagSentence"
-			numberOfFeaturesPerWord = -1
-			paddingTagIndex = -1
-			generatePOSunambiguousInput = False
-			onlyAddPOSunambiguousInputToTrain = False	#True
+			dataset = "POStagSentence"	#optional: POStagSequence or POStagSequence
 		else:
-			print("!SANItf2_algorithm.SANIsharedModules")
-			dataset = "POStagSequence"
+			dataset = "POStagSentence"	#optional: POStagSequence or POStagSequence
 	elif(SANItf2_algorithm.algorithmSANI == "sharedModulesBinary"):
 		if(SANItf2_algorithm.SANIsharedModules):	#only implementation
 			print("sharedModulesBinary")
-			dataset = "POStagSentence"
-			numberOfFeaturesPerWord = -1
-			paddingTagIndex = -1	
-			generatePOSunambiguousInput = False
-			onlyAddPOSunambiguousInputToTrain = False	#True
+			dataset = "POStagSentence"	#optional: POStagSequence or POStagSequence
 		else:
 			print("SANItf2 error: (SANItf2_algorithm.algorithmSANI == sharedModulesBinary) && !(SANItf2_algorithm.SANIsharedModules)")
 			exit()
 	elif(SANItf2_algorithm.algorithmSANI == "sharedModules"):
 		if(SANItf2_algorithm.SANIsharedModules):	#only implementation
-			dataset = "POStagSentence"
-			numberOfFeaturesPerWord = -1
-			paddingTagIndex = -1
-			if(SANItf2_algorithm.allowMultipleContributingSubinputsPerSequentialInput):
-				generatePOSunambiguousInput = False
-				onlyAddPOSunambiguousInputToTrain = False
-			else:
-				generatePOSunambiguousInput = False
-				onlyAddPOSunambiguousInputToTrain = True
+			dataset = "POStagSentence"	#optional: POStagSequence or POStagSequence
 		else:
 			print("SANItf2 error: (SANItf2_algorithm.algorithmSANI == sharedModules) && !(SANItf2_algorithm.SANIsharedModules)")
 			exit()
 	elif(SANItf2_algorithm.algorithmSANI == "repeatedModules"):
 		if(not SANItf2_algorithm.SANIsharedModules):	#only implementation
+			#dataset = "POStagSentence"	#optional: POStagSequence or POStagSequence
 			dataset = "POStagSequence"
 		else:
 			print("SANItf2 error: (SANItf2_algorithm.algorithmSANI == repeatedModules) && (SANItf2_algorithm.SANIsharedModules)")	
 			exit()		
-		
+	
+	if(dataset == "POStagSentence"):
+		dataset = "POStagSentence"
+		numberOfFeaturesPerWord = -1
+		paddingTagIndex = -1
+		if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
+			generatePOSunambiguousOutput = True
+		if(SANItf2_algorithm.algorithmSANI == "sharedModules"):
+			if(SANItf2_algorithm.allowMultipleContributingSubinputsPerSequentialInput):
+				generatePOSunambiguousInput = False
+				onlyAddPOSunambiguousInputToTrain = False
+			else:
+				generatePOSunambiguousInput = False
+				onlyAddPOSunambiguousInputToTrain = False	#OLD: True				
+		else:
+			generatePOSunambiguousInput = False
+			onlyAddPOSunambiguousInputToTrain = False
+	elif(dataset == "POStagSequence"):
+		#pass
+		onlyPriorUnidirectionalPOSinputToTrain = True
+		generatePOSunambiguousOutput = False	#assume batchY is already pos unambiguous
+					
 			
 if(debugUseSmallPOStagSequenceDataset):
 	dataset1FileNameXstart = "Xdataset1PartSmall"
@@ -157,26 +167,120 @@ def neuralNetworkPropagation(x, networkIndex=1, l=None):
 	return SANItf2_algorithm.neuralNetworkPropagation(x, networkIndex)
 
 
-def trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex, costCrossEntropyWithLogits, display, l=None):
-	
-	if(algorithm == "SANI"):
+def trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex, costCrossEntropyWithLogits, display):
+	if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
+		#untested;
+		if(generatePOSunambiguousOutput):
+			#generate batchY based on nextWord in sequence
+			maximumSentenceLength = batchX.shape[1]//numberOfFeaturesPerWord
+			paddingCharacter = str(paddingTagIndex)[0]
+			#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
+			#print("maximumSentenceLength = ", maximumSentenceLength)
+			firstWordIndex = 0
+			for w in range(firstWordIndex, maximumSentenceLength-1):
+				nextWordFeatureIndex = (w+1)*numberOfFeaturesPerWord
+				#print("batchX.shape = ", batchX.shape)
+				#print("nextWordFeatureIndex = ", nextWordFeatureIndex)
+				#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
+				batchXsubset = batchX[:, firstWordIndex:nextWordFeatureIndex]
+				batchYsubset = batchX[:, nextWordFeatureIndex:nextWordFeatureIndex+numberOfFeaturesPerWord]
+				#print("batchXsubset.shape = ", batchXsubset.shape)
+				#print("batchYsubset.shape = ", batchYsubset.shape)
+				#print("numberOfLayers = ", numberOfLayers)
+				executeOptimisation(batchXsubset, batchYsubset, datasetNumClasses, numberOfLayers, optimizer, networkIndex)	
+				if(display):
+					loss, acc = calculatePropagationLoss(batchXsubset, batchYsubset, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex)
+					print("networkIndex: %i, batchIndex: %i, loss: %f, accuracy: %f" % (networkIndex, batchIndex, loss, acc))
+		else:
+			executeOptimisation(batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex)	
+			if(display):
+				loss, acc = calculatePropagationLoss(batchX, batchY, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex)
+				print("networkIndex: %i, batchIndex: %i, loss: %f, accuracy: %f" % (networkIndex, batchIndex, loss, acc))
+	else:
 		#learning algorithm not yet implemented:
 		#if(batchSize > 1):
 		pred = neuralNetworkPropagation(batchX)	
 		print("pred = ", pred)		
 
-	pred = None
-			
-	return pred
-			
 	
+def executeOptimisation(x, y, datasetNumClasses, numberOfLayers, optimizer, networkIndex=1):
+	with tf.GradientTape() as gt:
+		loss, acc = calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex)
+		
+	Wlist = []
+	Blist = []
+	Wseqlist = []
+	Bseqlist = []
+	for l1 in range(1, numberOfLayers+1):
+		if(SANItf2_algorithmSANIglobalDefs.performSummationOfSequentialInputsWeighted):
+			Wlist.append(SANItf2_algorithm.W[generateParameterName(l1, "W")])
+			Blist.append(SANItf2_algorithm.B[generateParameterName(l1, "B")])
+		if(SANItf2_algorithmSANIglobalDefs.performSummationOfSubInputsWeighted):
+			if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
+				if(SANItf2_algorithmSANIglobalDefs.supportFeedback):
+					l2Max = numberOfLayers
+				else:
+					l2Max = l1-1
+				for l2 in range(0, l2Max+1):
+					for s in range(SANItf2_algorithmSANIglobalDefs.numberOfSequentialInputs):
+						Wseqlist.append(SANItf2_algorithm.Wseq[generateParameterNameSeqSkipLayers(l1, l2, s, "Wseq")])
+						if(l2 == 0):
+							Bseqlist.append(SANItf2_algorithm.Bseq[generateParameterNameSeq(l1, s, "Bseq")])	
+			else:
+				for s in range(SANItf2_algorithmSANIglobalDefs.numberOfSequentialInputs):
+					Bseqlist.append(SANItf2_algorithm.Bseq[generateParameterNameSeq(l1, s, "Bseq")])
+					Wseqlist.append(SANItf2_algorithm.Wseq[generateParameterNameSeq(l1, s, "Wseq")])
+				
+	trainableVariables = Wlist + Blist + Wseqlist + Bseqlist
+
+	gradients = gt.gradient(loss, trainableVariables)
+						
+	if(suppressGradientDoNotExistForVariablesWarnings):
+		optimizer.apply_gradients([
+    		(grad, var) 
+    		for (grad, var) in zip(gradients, trainableVariables) 
+    		if grad is not None
+			])
+	else:
+		optimizer.apply_gradients(zip(gradients, trainableVariables))
+	
+def calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex=1):
+	acc = 0	#only valid for softmax class targets 
+	pred = neuralNetworkPropagation(x, networkIndex)
+	target = y 
+	target = tf.dtypes.cast(target, tf.float32)
+	#print("pred = ", pred) 
+	#print("target = ", target) 
+		
+	singleTarget = False
+	if(dataset == "POStagSentence"):
+		oneHotEncoded = True
+		singleTarget = False
+		#if(onlyAddPOSunambiguousInputToTrain):
+		#	singleTarget = True
+		#print("oneHotEncoded")
+	elif(dataset == "POStagSequence"):
+		oneHotEncoded = False
+		singleTarget = True
+		
+	loss = calculateLossCrossEntropy(pred, target, datasetNumClasses, costCrossEntropyWithLogits, oneHotEncoded=oneHotEncoded)
+	
+	if(singleTarget):
+		acc = calculateAccuracy(pred, target)	#only valid for softmax class targets 
+		
+	#print("x = ", x)
+	#print("y = ", y)
+	#print("2 loss = ", loss)
+	#print("2 acc = ", acc)
+	
+	return loss, acc
+	
+	
+			
 def loadDataset(fileIndex):
 
 	global numberOfFeaturesPerWord
 	global paddingTagIndex
-	global numberOfFeaturesPerWord
-	global numberOfFeaturesPerWord
-	global numberOfFeaturesPerWord
 	
 	datasetNumFeatures = 0
 	datasetNumClasses = 0
@@ -195,7 +299,7 @@ def loadDataset(fileIndex):
 
 	numberOfLayers = 0
 	if(dataset == "POStagSequence"):
-		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType1(datasetType1FileNameX, datasetType1FileNameY)
+		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType1(datasetType1FileNameX, datasetType1FileNameY, onlyPriorUnidirectionalPOSinputToTrain)
 	elif(dataset == "POStagSentence"):
 		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType3(datasetType3FileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths)
 	elif(dataset == "SmallDataset"):
@@ -256,6 +360,7 @@ def trainMinimal():
 		print("Test Accuracy: %f" % (calculateAccuracy(pred, test_y)))
 
 			
+#SANItf does not supportMultipleNetworks
 #this function can be used to extract a minimal template (does not support algorithm==LREANN);
 def train(trainMultipleNetworks=False, trainMultipleFiles=False, greedy=False):
 	
@@ -298,14 +403,14 @@ def train(trainMultipleNetworks=False, trainMultipleFiles=False, greedy=False):
 	
 		#fileIndex = 0
 		#trainMultipleFiles code;
-		if(trainMultipleFiles):
-			fileIndexArray = np.arange(fileIndexFirst, fileIndexLast+1, 1)
-			#print("fileIndexArray = " + str(fileIndexArray))
-			np.random.shuffle(fileIndexArray)
-			fileIndexShuffledArray = fileIndexArray
-			#print("fileIndexShuffledArray = " + str(fileIndexShuffledArray))
-		for fileIndex in range(minFileIndex, maxFileIndex+1):
-
+		if(randomiseFileIndexParse):
+			fileIndexShuffledArray = generateRandomisedIndexArray(fileIndexFirst, fileIndexLast)
+		for f in range(minFileIndex, maxFileIndex+1):
+			if(randomiseFileIndexParse):
+				fileIndex = fileIndexShuffledArray[f]
+			else:
+				fileIndex = f
+				
 			numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = loadDataset(fileIndex)
 
 			shuffleSize = datasetNumExamples	#heuristic: 10*batchSize
@@ -320,50 +425,48 @@ def train(trainMultipleNetworks=False, trainMultipleFiles=False, greedy=False):
 				trainDataListIterators = []
 				for trainData in trainDataList:
 					trainDataListIterators.append(iter(trainData))
+				testBatchX, testBatchY = generateTFbatch(test_x, test_y, batchSize)
+				#testBatchX, testBatchY = (test_x, test_y)
 
 				for batchIndex in range(int(trainingSteps)):
 					(batchX, batchY) = trainDataListIterators[trainDataIndex].get_next()	#next(trainDataListIterators[trainDataIndex])
 					batchYactual = batchY
 					
-					#trainMultipleNetworks code;
-					predNetworkAverage = tf.Variable(tf.zeros(datasetNumClasses))
 					for networkIndex in range(1, maxNetwork+1):
-
 						display = False
 						#if(l == maxLayer):	#only print accuracy after training final layer
 						if(batchIndex % displayStep == 0):
 							display = True	
-						pred = trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex, costCrossEntropyWithLogits, display, l)
-						if(pred is not None):
-							predNetworkAverage = predNetworkAverage + pred
+						trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex, costCrossEntropyWithLogits, display)
 						
 					#trainMultipleNetworks code;
 					if(trainMultipleNetworks):
-						if(display):
-							predNetworkAverage = predNetworkAverage / numberOfNetworks
-							loss = calculateLossCrossEntropy(predNetworkAverage, batchYactual, datasetNumClasses, costCrossEntropyWithLogits)
-							acc = calculateAccuracy(predNetworkAverage, batchYactual)
-							print("batchIndex: %i, loss: %f, accuracy: %f" % (batchIndex, loss, acc))	
+						#train combined network final layer
+						trainBatchAllNetworksFinalLayer(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, costCrossEntropyWithLogits, display)
 
 				#trainMultipleNetworks code;
 				if(trainMultipleNetworks):
-					predNetworkAverageAll = tf.Variable(tf.zeros([test_y.shape[0], datasetNumClasses]))
-					for networkIndex in range(1, numberOfNetworks+1):
-						pred = neuralNetworkPropagationTest(test_x, networkIndex)	#test_x batch may be too large to propagate simultaneously and require subdivision
-						print("Test Accuracy: networkIndex: %i, %f" % (networkIndex, calculateAccuracy(pred, test_y)))
-						predNetworkAverageAll = predNetworkAverageAll + pred
-					predNetworkAverageAll = predNetworkAverageAll / numberOfNetworks
-					#print("predNetworkAverageAll", predNetworkAverageAll)
-					acc = calculateAccuracy(predNetworkAverageAll, test_y)
-					print("Test Accuracy: %f" % (acc))
+					testBatchAllNetworksFinalLayer(testBatchX, testBatchY, datasetNumClasses, numberOfLayers)
 				else:
-					pred = neuralNetworkPropagationTest(test_x, networkIndex)
+					pred = neuralNetworkPropagationTest(testBatchX, networkIndex)
 					if(greedy):
-						print("Test Accuracy: l: %i, %f" % (l, calculateAccuracy(pred, test_y)))
+						print("Test Accuracy: l: %i, %f" % (l, calculateAccuracy(pred, testBatchY)))
 					else:
-						print("Test Accuracy: %f" % (calculateAccuracy(pred, test_y)))
+						print("Test Accuracy: %f" % (calculateAccuracy(pred, testBatchY)))
 
-						
+
+def generateRandomisedIndexArray(indexFirst, indexLast, arraySize=None):
+	fileIndexArray = np.arange(indexFirst, indexLast+1, 1)
+	#print("fileIndexArray = " + str(fileIndexArray))
+	if(arraySize is None):
+		np.random.shuffle(fileIndexArray)
+		fileIndexRandomArray = fileIndexArray
+	else:
+		fileIndexRandomArray = random.sample(fileIndexArray.tolist(), arraySize)
+	
+	print("fileIndexRandomArray = " + str(fileIndexRandomArray))
+	return fileIndexRandomArray
+							
 
 				
 if __name__ == "__main__":

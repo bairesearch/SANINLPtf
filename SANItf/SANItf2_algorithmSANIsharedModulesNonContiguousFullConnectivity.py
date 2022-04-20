@@ -1,7 +1,7 @@
-"""SANItf2_algorithmSANIsharedModulesHebbian.py
+"""SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2020-2022 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -13,15 +13,15 @@ see SANItf2.py
 see SANItf2.py
 
 # Description:
-SANItf algorithm SANI shared modules hebbian - define Sequentially Activated Neuronal Input neural network with shared modules and hebbian update learning rule
+SANItf algorithm SANI shared modules non-contiguous full connectivity - define Sequentially Activated Neuronal Input neural network with shared modules non-contiguous full connectivity
 
 See shared modules
-SANItf2_algorithmSANIsharedModulesHebbian has been developed with the following features:
-	useHebbianLearningRuleApply: includes hebbian learning algorithm
-	!enforceTcontiguityConstraints: no time/word index contiguity requirements (only sequentiality of neuronal inputs are enforced)
+SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity has been developed with the following features:
+	!useTcontiguity:enforceTcontiguityConstraints: no time/word index contiguity requirements (only sequentiality of neuronal inputs are enforced)
 	supportFullConnectivity: supports full connectivity between layers (including supportSkipLayers)
 	supportFeedback: supports feedback (higher to lower layer connectivity)
 	SANIsharedModules: supports either sliding window input (True) or full contextual input (False) 
+	#useHebbianLearningRuleApply: supports hebbian learning algorithm
 	
 """
 
@@ -48,6 +48,8 @@ Wseq = {}	#weights matrix
 Bseq = {}	#biases vector
 W = {}	#weights matrix
 B = {}	#biases vector
+if(useLearningRuleBackpropagation):
+	Whead = [] #final linear layer weights matrix
 
 #parameters
 #static parameters (convert from tf.variable to tf.constant?):
@@ -58,7 +60,7 @@ B = {}	#biases vector
 #			CseqLayer = {}	
 #			n_h_cumulative = {}
 ##variable parameters:	
-#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):
+#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):
 #	if(recordNetworkWeights):
 #		if(recordSubInputsWeighted):
 #			AseqInputVerified = {}
@@ -67,7 +69,7 @@ B = {}	#biases vector
 #			WR = {}	#weights matrix
 #		if(recordNeuronsWeighted):
 #			BR = {}	#biases vector
-#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
+#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
 #	#variable parameters (tf.variable): 
 #	if(allowMultipleSubinputsPerSequentialInput):
 #		if(performSummationOfSubInputsWeighted):
@@ -82,11 +84,11 @@ B = {}	#biases vector
 n_h = []
 numberOfLayers = 0
 
-#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
+#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
 numberOfFeaturesPerWord = -1
 paddingTagIndex = -1
 def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddingTagIndexNew):
-	#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
+	#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
 	global numberOfFeaturesPerWord
 	global paddingTagIndex
 	numberOfFeaturesPerWord = numberOfFeaturesPerWordNew
@@ -96,6 +98,7 @@ def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, da
 	global n_h
 	global numberOfLayers
 	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	return numberOfLayers
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
 	return SANItf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
@@ -103,20 +106,23 @@ def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
 
 def defineNeuralNetworkParameters():
 	global n_h_cumulative
+	if(useLearningRuleBackpropagation):
+		global Whead
+		randomNormal = tf.initializers.RandomNormal()
+		Whead = tf.Variable(randomNormal([n_h[numberOfLayers], numberOfFeaturesPerWord], dtype=tf.float32))
 	SANItf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
 			
 
 #temporary variables for neuralNetworkPropagationSANI:
-if(algorithmSANI == "sharedModulesHebbian"):
+if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	Vseq = {}
 	Zseq = {}
 	Aseq = {}
 	Z = {}
 	A = {}
 	sequentialActivationFound = {}	#CHECKTHIS: is this required?
-	if(algorithmSANI == "sharedModulesHebbian"):
-		if(useHebbianLearningRuleApply):
-			WseqDelta = {}	#prospective weights update
+	#if(useHebbianLearningRuleApply):
+	#	WseqDelta = {}	#prospective weights update
 
 #end common SANItf2_algorithmSANI.py code
 
@@ -130,7 +136,7 @@ def neuralNetworkPropagationSANI(x):
 	
 	#print("x.shape = ", x.shape)	
 	
-	#note SANItf2_algorithmSANIsharedModulesHebbian does not use time/contiguity checks
+	#note SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity does not use time/contiguity checks
 		
 	#definitions for reference:
 	
@@ -171,13 +177,13 @@ def neuralNetworkPropagationSANI(x):
 			Zseq[generateParameterNameSeq(l, s, "Zseq")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
 			Aseq[generateParameterNameSeq(l, s, "Aseq")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
 			
-			if(supportFeedback):
-				l2Max = numberOfLayers
-			else:
-				l2Max = l-1
-			for l2 in range(0, l2Max+1):
-				if(useHebbianLearningRuleApply):
-					WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = tf.Variable(tf.zeros([n_h[l2], n_h[l]]), dtype=tf.float32)	
+			#if(useHebbianLearningRuleApply):
+			#	if(supportFeedback):
+			#		l2Max = numberOfLayers
+			#	else:
+			#		l2Max = l-1
+			#	for l2 in range(0, l2Max+1):
+			#		WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = tf.Variable(tf.zeros([n_h[l2], n_h[l]]), dtype=tf.float32)	
 					
 	if(SANIsharedModules):
 			
@@ -219,7 +225,7 @@ def neuralNetworkPropagationSANI(x):
 			AfirstLayerShifted = tf.dtypes.cast(AfirstLayerShifted, tf.float32)	#added 01 Sept 2021 #convert input from int to float
 			A[generateParameterName(0, "A")] = AfirstLayerShifted
 			
-			neuralNetworkPropagationSANIfeed(AfirstLayerShifted)
+			pred = neuralNetworkPropagationSANIfeed(AfirstLayerShifted)
 			
 			#exit()
 	else:
@@ -228,9 +234,10 @@ def neuralNetworkPropagationSANI(x):
 		
 		AfirstLayer = tf.dtypes.cast(AfirstLayer, tf.float32)	#added 01 Sept 2021 #convert input from int to float
 		A[generateParameterName(0, "A")] = AfirstLayer
-		neuralNetworkPropagationSANIfeed(AfirstLayer)
+		pred = neuralNetworkPropagationSANIfeed(AfirstLayer)
 			
-			
+	return pred
+		
 def neuralNetworkPropagationSANIfeed(AfirstLayer):
 	
 	batchSize = AfirstLayer.shape[0]
@@ -289,7 +296,7 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 				VseqExisting = tf.fill([batchSize, n_h[l]], True)	#all values of Vseq0_l are always set to 1 as they have no sequential dependencies		
 			else:
 				VseqPrevTest = VseqPrev
-				#note SANItf2_algorithmSANIsharedModulesHebbian does not use time/word index contiguity checks
+				#note SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity does not use time/word index contiguity checks
 				VseqExisting = VseqPrevTest	#if previous sequentiality check fails, then all future sequentiality checks must fail	
 			
 			VseqFloat = tf.dtypes.cast(VseqExisting, tf.float32)
@@ -318,30 +325,30 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			Aseq[generateParameterNameSeq(l, s, "Aseq")] = AseqCurrent
 			
 			
-			if(useHebbianLearningRuleApply):
-				for l2 in range(0, l2Max+1):
-					#constrain learning (weight updates) to where VseqUpdated is True:
-					
-					AseqInput = A[generateParameterName(l2, "A")]
-					AseqInputSqueezed = tf.squeeze(AseqInput, axis=0)	#batchSize must equal 1
-					AseqInputSqueezed = tf.expand_dims(AseqInputSqueezed, axis=1)
-					multiples = tf.constant([1,n_h[l]], tf.int32)
-					AseqInputTiled = tf.tile(AseqInputSqueezed, multiples)
-
-					VseqUpdatedFloat = tf.dtypes.cast(VseqUpdated, tf.float32)	
-					VseqUpdatedFloatSqueeze = tf.squeeze(VseqUpdatedFloat, axis=0)	#batchSize must equal 1
-					VseqUpdatedFloatSqueeze = tf.expand_dims(VseqUpdatedFloatSqueeze, axis=0)
-					multiples = tf.constant([n_h[l2],1], tf.int32)
-					VseqUpdatedFloatTiled = tf.tile(VseqUpdatedFloatSqueeze, multiples)
-					
-					AseqMod = tf.subtract(tf.multiply(AseqInputSqueezed, 2.0), 1.0)
-					WseqDeltaSign = tf.multiply(AseqMod, VseqUpdatedFloatTiled)	
-					WseqDeltaCurrent = tf.multiply(WseqDeltaSign, hebbianLearningRate)
-					WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = WseqDeltaCurrent 
-					
-					#print("AseqInputTiled = ", AseqInputTiled)
-					#print("VseqUpdatedFloatTiled = ", VseqUpdatedFloatTiled)
-					#print("WseqDeltaSign = ", WseqDeltaSign)
+			#if(useHebbianLearningRuleApply):
+			#	for l2 in range(0, l2Max+1):
+			#		#constrain learning (weight updates) to where VseqUpdated is True:
+			#		
+			#		AseqInput = A[generateParameterName(l2, "A")]
+			#		AseqInputSqueezed = tf.squeeze(AseqInput, axis=0)	#batchSize must equal 1
+			#		AseqInputSqueezed = tf.expand_dims(AseqInputSqueezed, axis=1)
+			#		multiples = tf.constant([1,n_h[l]], tf.int32)
+			#		AseqInputTiled = tf.tile(AseqInputSqueezed, multiples)
+			#
+			#		VseqUpdatedFloat = tf.dtypes.cast(VseqUpdated, tf.float32)	
+			#		VseqUpdatedFloatSqueeze = tf.squeeze(VseqUpdatedFloat, axis=0)	#batchSize must equal 1
+			#		VseqUpdatedFloatSqueeze = tf.expand_dims(VseqUpdatedFloatSqueeze, axis=0)
+			#		multiples = tf.constant([n_h[l2],1], tf.int32)
+			#		VseqUpdatedFloatTiled = tf.tile(VseqUpdatedFloatSqueeze, multiples)
+			#		
+			#		AseqMod = tf.subtract(tf.multiply(AseqInputSqueezed, 2.0), 1.0)
+			#		WseqDeltaSign = tf.multiply(AseqMod, VseqUpdatedFloatTiled)	
+			#		WseqDeltaCurrent = tf.multiply(WseqDeltaSign, hebbianLearningRate)
+			#		WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = WseqDeltaCurrent 
+			#		
+			#		#print("AseqInputTiled = ", AseqInputTiled)
+			#		#print("VseqUpdatedFloatTiled = ", VseqUpdatedFloatTiled)
+			#		#print("WseqDeltaSign = ", WseqDeltaSign)
 
 								
 			if(performSummationOfSequentialInputs):
@@ -410,27 +417,32 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 		A[generateParameterName(l, "A")] = A1
 		Z[generateParameterName(l, "Z")] = Z1
 
-		if(useHebbianLearningRuleApply):
-			for s2 in range(numberOfSequentialInputs):
-				for l2 in range(0, l2Max+1):
-
-					#only apply weight updates to neurons that fired (all sequential inputs passed):
-					
-					Asqueezed = tf.squeeze(A[generateParameterName(l, "A")], axis=0)	#batchSize must equal 1
-					Asqueezed = tf.expand_dims(Asqueezed, axis=0)
-					multiples = tf.constant([n_h[l2],1], tf.int32)
-					ATiled = tf.tile(Asqueezed, multiples)
-					ATiledActiveBool = tf.math.greater(ATiled, 0.0)
-					ATiledActive = tf.dtypes.cast(ATiledActiveBool, tf.float32)
-					
-					WseqDeltaApplicable = tf.multiply(ATiledActive, WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s2, "WseqDelta")])
-					
-					WseqUpdated = tf.add(Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")], WseqDeltaApplicable)
-					WseqUpdated = tf.clip_by_value(WseqUpdated, minimumConnectionWeight, maximumConnectionWeight)
-					Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")] = WseqUpdated 
+		#if(useHebbianLearningRuleApply):
+		#	for s2 in range(numberOfSequentialInputs):
+		#		for l2 in range(0, l2Max+1):
+		#
+		#			#only apply weight updates to neurons that fired (all sequential inputs passed):
+		#			
+		#			Asqueezed = tf.squeeze(A[generateParameterName(l, "A")], axis=0)	#batchSize must equal 1
+		#			Asqueezed = tf.expand_dims(Asqueezed, axis=0)
+		#			multiples = tf.constant([n_h[l2],1], tf.int32)
+		#			ATiled = tf.tile(Asqueezed, multiples)
+		#			ATiledActiveBool = tf.math.greater(ATiled, 0.0)
+		#			ATiledActive = tf.dtypes.cast(ATiledActiveBool, tf.float32)
+		#			
+		#			WseqDeltaApplicable = tf.multiply(ATiledActive, WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s2, "WseqDelta")])
+		#			
+		#			WseqUpdated = tf.add(Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")], WseqDeltaApplicable)
+		#			WseqUpdated = tf.clip_by_value(WseqUpdated, minimumConnectionWeight, maximumConnectionWeight)
+		#			Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")] = WseqUpdated 
 
 	ZlastLayer = Z[generateParameterName(numberOfLayers, "Z")]
 		
-	return tf.nn.softmax(ZlastLayer)
-
+	if(useLearningRuleBackpropagation):
+		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead)
+	else:
+		pred = ZlastLayer
+	
+	return pred
+	
 

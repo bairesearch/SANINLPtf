@@ -293,7 +293,7 @@ def hotEncode(y, maxY):
 	yHotEncoded[y-1] = 1
 	return yHotEncoded
 			
-def loadDatasetType1(datasetFileNameX, datasetFileNameY):
+def loadDatasetType1(datasetFileNameX, datasetFileNameY, onlyPriorUnidirectionalPOSinputToTrain=False):
 	
 	#all_X = genfromtxt(datasetFileNameX, delimiter=' ')
 	#all_Y = genfromtxt(datasetFileNameY, delimiter=' ')
@@ -312,6 +312,14 @@ def loadDatasetType1(datasetFileNameX, datasetFileNameY):
 	datasetNumFeatures = all_X.shape[1]
 	datasetNumClasses = all_Y.shape[1]
 
+	#added 19 April 2022;
+	if(onlyPriorUnidirectionalPOSinputToTrain):
+		#print("onlyPriorUnidirectionalPOSinputToTrain:")
+		#print("all_X.shape = ", all_X.shape)
+		#print("datasetNumFeatures = ", datasetNumFeatures)
+		all_X = all_X[:, 0:datasetNumFeatures//2]
+		#print("all_X.shape = ", all_X.shape)
+		
 	datasetNumExamplesTrain = int(float(datasetNumExamples)*percentageDatasetTrain/100.0)
 	datasetNumExamplesTest = int(float(datasetNumExamples)*(100.0-percentageDatasetTrain)/100.0)
 	
@@ -679,7 +687,7 @@ def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSun
 		train_y, test_y = np.array(train_y, np.uint8), np.array(test_y, np.uint8)
 		#https://www.tensorflow.org/api_docs/python/tf/keras/datasets/mnist/load_data?version=stable
 		#https://medium.com/@HojjatA/could-not-find-valid-device-for-node-while-eagerly-executing-8f2ff588d1e
-
+	
 	return numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 
 

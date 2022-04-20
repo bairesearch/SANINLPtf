@@ -1,7 +1,7 @@
 """SANItf2_algorithmSANIrepeatedModules.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2020-2022 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -42,6 +42,8 @@ Wseq = {}	#weights matrix
 Bseq = {}	#biases vector
 W = {}	#weights matrix
 B = {}	#biases vector
+if(useLearningRuleBackpropagation):
+	Whead = [] #final linear layer weights matrix
 
 #parameters
 #static parameters (convert from tf.variable to tf.constant?):
@@ -52,7 +54,7 @@ B = {}	#biases vector
 #			CseqLayer = {}	
 #			n_h_cumulative = {}
 ##variable parameters:	
-#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):
+#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):
 #	if(recordNetworkWeights):
 #		if(recordSubInputsWeighted):
 #			AseqInputVerified = {}
@@ -61,7 +63,7 @@ B = {}	#biases vector
 #			WR = {}	#weights matrix
 #		if(recordNeuronsWeighted):
 #			BR = {}	#biases vector
-#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
+#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
 #	#variable parameters (tf.variable): 
 #	if(allowMultipleSubinputsPerSequentialInput):
 #		if(performSummationOfSubInputsWeighted):
@@ -76,11 +78,11 @@ B = {}	#biases vector
 n_h = []
 numberOfLayers = 0
 
-#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
+#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
 numberOfFeaturesPerWord = -1
 paddingTagIndex = -1
 def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddingTagIndexNew):
-	#if((algorithmSANI == "sharedModulesHebbian") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
+	#if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):	#only code to currently use these variables
 	global numberOfFeaturesPerWord
 	global paddingTagIndex
 	numberOfFeaturesPerWord = numberOfFeaturesPerWordNew
@@ -90,6 +92,7 @@ def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, da
 	global n_h
 	global numberOfLayers
 	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	return numberOfLayers
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
 	return SANItf2_algorithmSANIoperations.defineTrainingParametersSANI(dataset, trainMultipleFiles)
@@ -97,6 +100,10 @@ def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
 
 def defineNeuralNetworkParameters():
 	global n_h_cumulative
+	if(useLearningRuleBackpropagation):
+		global Whead
+		randomNormal = tf.initializers.RandomNormal()
+		Whead = tf.Variable(randomNormal([n_h[numberOfLayers], numberOfFeaturesPerWord], dtype=tf.float32))
 	SANItf2_algorithmSANIoperations.defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B)
 			
 
@@ -473,10 +480,13 @@ def neuralNetworkPropagationSANI(x):
 				Z = ZseqLast
 				A = AseqLast
 				
-
-		
 		AprevLayer = A
-		
-	return tf.nn.softmax(Z)
+
+	if(useLearningRuleBackpropagation):
+		pred = SANItf2_algorithmSANIoperations.generatePrediction(Z, Whead)
+	else:
+		pred = tf.nn.softmax(Z)
+	
+	return pred
 
 
