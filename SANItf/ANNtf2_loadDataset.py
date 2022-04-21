@@ -1,7 +1,7 @@
 """ANNtf2_loadDataset.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2020-2021 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2020-2022 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -23,10 +23,10 @@ ANNtf2 load dataset
 	
 ## Dataset type 1:
 
-	XtrainBatchXXXX.bat: 
+	XtrainBatchXXXX.dat: 
 	*   x input features (cols) per experience (row) [space delimited]
 
-	YtrainBatchXXXX.bat:
+	YtrainBatchXXXX.dat:
 	*   x output classes (cols) per experience (row) [space delimited]
 	*   One-hot encoded with a 1 corresponding to the class, and 0 otherwise
 	
@@ -38,8 +38,14 @@ ANNtf2 load dataset
 
 ## Dataset type 3:
 
-	XtrainBatchXXXX.bat: 
+	XtrainBatchXXXX.dat: 
 	*   x input features (cols) per experience (row) [space delimited]
+
+## Dataset type 4:
+
+	XtrainBatchXXXX.dat: 
+	*   x input features (cols) per experience (row) [space delimited]
+
 
 	
 	
@@ -51,18 +57,18 @@ ANNtf2 load dataset
 		POStagSequence: where the centre word has a non-ambigious POS tag.
 	~53 POS tags identifiable per word.
 
-	XtrainBatchXXXX.bat: 
+	XtrainBatchXXXX.dat: 
 	*   530 features (cols) per word sequence (row).
 	*       POStagSequence: 10 words per sequence (missing centre word). 
 	*   POStagSequence: includes POS_INDEX_OUT_OF_SENTENCE_BOUNDS if !GIA_PREPROCESSOR_POS_TAGGER_DATABASE_DO_NOT_TRAIN_POS_INDEX_OUT_OF_SENTENCE_BOUNDS
         *   supports ambiguous contextual POS data (ie more than valid POS index per word in the sequence)
 	*   a 1 is assigned to each possible POS tag index, 0 otherwise
 	
-	YtrainBatchXXXX.bat:
+	YtrainBatchXXXX.dat:
 	*   52 possible classes. 
 	*   One-hot encoded with a 1 corresponding to its generated POS tag index.
 
-	To generate the POS dataset with GIA (XtrainBatchXXXX.bat/YtrainBatchXXXX.bat):
+	To generate the POS dataset with GIA (XtrainBatchXXXX.dat/YtrainBatchXXXX.dat):
 	```
 	download wikipedia archive (e.g. enwiki-20171201-pages-articles.xml.bz2)
 	download wikiextractor tool (https://github.com/attardi/wikiextractor)
@@ -89,13 +95,13 @@ ANNtf2 load dataset
 		POStagSentence: where all words can have ambiguous POS tags
 	~53 POS tags identifiable per word.
 
-	XtrainBatchXXXX.bat: 
+	XtrainBatchXXXX.dat: 
 	*   53*numWordsPerSequence features (cols) per word sequence (row). 
 	*	POStagSentence: arbitrary number of words per sentence
 	*       53 features per word in sequence: ie 53*numWordsPerSequence - x53 features [word #1] x53 features [word #2] etc 
 	*   a 1 is assigned to each possible POS tag index, 0 otherwise
 	
-	To generate the POS dataset with GIA (XtrainBatchXXXX.bat):
+	To generate the POS dataset with GIA (XtrainBatchXXXX.dat):
 	```
 	download wikipedia archive (e.g. enwiki-20171201-pages-articles.xml.bz2)
 	download wikiextractor tool (https://github.com/attardi/wikiextractor)
@@ -109,6 +115,19 @@ ANNtf2 load dataset
 	./GIAgeneratePOStaggerDatabase.exe -dbpostaggerfolder "/home/rich/source/GIAPOStaggerDatabase" -lrp -lrpfolder "/home/rich/source/source/LRPdata" -wikiDumpFolder "/home/rich/soft/wiki/output" (-wikiDumpFileBatchIndex X)
 	this creates XtrainBatchXXXX.dat
 	```
+## Dataset type 4 example - free text (XtrainBatchXXXX.dat)
+
+	This example dataset is generated from wikidump. 
+
+	XtrainBatchXXXX.xml: 
+	Free text (e.g. wiki_0000.xml)
+
+	To generate the free text dataset (XtrainBatchXXXX.xml):
+	```
+	download wikipedia archive (e.g. enwiki-20171201-pages-articles.xml.bz2)
+	download wikiextractor tool (https://github.com/attardi/wikiextractor)
+	execute WikiExtractor.py on wikipedia archive
+	
 	
 """
 
@@ -118,6 +137,10 @@ import tensorflow as tf
 import numpy as np
 from numpy import genfromtxt
 import ANNtf2_globalDefs
+#from nltk import tokenize	#required for ANNtf2_loadDataset loadDatasetType4 only
+import re
+import ANNtf2_operations
+
 
 datasetFolderRelative = "datasets"
 
@@ -160,14 +183,12 @@ def loadtxtBasic(filename, delimiter=','):
 	#print("data = ", data)
 	return data
 	
-def loadtxt(filename, delimiter=',', classColumnFirst=True, numeriseClassColumn=True):
+def loadtxt(filename, delimiter=',', classColumnFirst=True, numeriseClassColumn=True, dtype=float):
 
-	
 	absFilePath = createFileAbsPath(filename)
 
 	#print("absFilePath = ", absFilePath)
 
-	dtype=float
 	classNamesDict = {}
 	classIndexMax = 1
 	
@@ -293,12 +314,12 @@ def hotEncode(y, maxY):
 	yHotEncoded[y-1] = 1
 	return yHotEncoded
 			
-def loadDatasetType1(datasetFileNameX, datasetFileNameY, onlyPriorUnidirectionalPOSinputToTrain=False):
+def loadDatasetType1(datasetFileNameX, datasetFileNameY, addOnlyPriorUnidirectionalPOSinputToTrain=False, dataType=float):
 	
-	#all_X = genfromtxt(datasetFileNameX, delimiter=' ')
-	#all_Y = genfromtxt(datasetFileNameY, delimiter=' ')
-	all_X = iter_loadtxt(datasetFileNameX, delimiter=' ')
-	all_Y = iter_loadtxt(datasetFileNameY, delimiter=' ')
+	#all_X = genfromtxt(datasetFileNameX, delimiter=' ', dtype=dataType)
+	#all_Y = genfromtxt(datasetFileNameY, delimiter=' ', dtype=dataType)
+	all_X = iter_loadtxt(datasetFileNameX, delimiter=' ', dtype=dataType)
+	all_Y = iter_loadtxt(datasetFileNameY, delimiter=' ', dtype=dataType)
 	
 	all_Y = np.array(all_Y, np.uint8)
 
@@ -312,14 +333,9 @@ def loadDatasetType1(datasetFileNameX, datasetFileNameY, onlyPriorUnidirectional
 	datasetNumFeatures = all_X.shape[1]
 	datasetNumClasses = all_Y.shape[1]
 
-	#added 19 April 2022;
-	if(onlyPriorUnidirectionalPOSinputToTrain):
-		#print("onlyPriorUnidirectionalPOSinputToTrain:")
-		#print("all_X.shape = ", all_X.shape)
-		#print("datasetNumFeatures = ", datasetNumFeatures)
+	if(addOnlyPriorUnidirectionalPOSinputToTrain):
 		all_X = all_X[:, 0:datasetNumFeatures//2]
-		#print("all_X.shape = ", all_X.shape)
-		
+
 	datasetNumExamplesTrain = int(float(datasetNumExamples)*percentageDatasetTrain/100.0)
 	datasetNumExamplesTest = int(float(datasetNumExamples)*(100.0-percentageDatasetTrain)/100.0)
 	
@@ -355,17 +371,30 @@ def loadDatasetType1(datasetFileNameX, datasetFileNameY, onlyPriorUnidirectional
 	paddingTagIndexNA = paddingTagIndex
 	return numberOfFeaturesPerWord, paddingTagIndexNA, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 
-	
-def loadDatasetType2(datasetFileName, classColumnFirst=True):
+
+def loadDatasetType2(datasetFileName, classColumnFirst=True, equaliseNumberExamplesPerClass=False, dataType=float):
 
 	numeriseClassColumn = True
 	
 	#dataRaw = loadtxtBasic(datasetFileName, delimiter=',')
-	dataRaw = loadtxt(datasetFileName, delimiter=',', classColumnFirst=classColumnFirst, numeriseClassColumn=numeriseClassColumn)
+	dataRaw = loadtxt(datasetFileName, delimiter=',', classColumnFirst=classColumnFirst, numeriseClassColumn=numeriseClassColumn, dtype=dataType)
 	
+	#equaliseNumberExamplesPerClass
+	if(equaliseNumberExamplesPerClass):
+		xRaw = dataRaw[:,1:]
+		yRaw = dataRaw[:,0]
+		xRawEqualised, yRawEqualised = equaliseClassExamples(xRaw, yRaw)
+		yRawEqualised = np.expand_dims(yRawEqualised, axis=1)
+		#print("xRawEqualised.dtype = ", xRawEqualised.dtype)
+		#print("yRawEqualised.dtype = ", yRawEqualised.dtype)
+		#print("xRawEqualised.shape = ", xRawEqualised.shape)
+		#print("yRawEqualised.shape = ", yRawEqualised.shape)
+		dataRaw = np.concatenate((yRawEqualised, xRawEqualised), axis=1)
+				
 	datasetNumExamples = dataRaw.shape[0]
 	#print (dataRaw)
 	#print ("datasetNumExamples: " + str(datasetNumExamples))
+	
 	#randomise data
 	dataRawRandomised = dataRaw
 	np.random.shuffle(dataRawRandomised)
@@ -435,11 +464,7 @@ def loadDatasetType2(datasetFileName, classColumnFirst=True):
 	return datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 	
 
-def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths):
-	
-	#parameters;
-	getDataAsBinary = False	#boolean type does not allow padding	
-	getDataAsInt = True
+def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths, dataType=float):
 		
 	padExamples = True
 	cropExamples = True
@@ -457,7 +482,7 @@ def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSun
 	generateNegativeExamples = False	#for backprop training
 	generateYvalues = True
 	if(generateYvalues):
-		if(getDataAsBinary):
+		if(dataType == bool):
 			yClassPositive = True
 			yClassNegative = False	
 		else:
@@ -466,15 +491,8 @@ def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSun
 		
 	#all_X = genfromtxt(datasetFileNameX, delimiter=' ')
 	paddingCharacter = str(paddingTagIndex)[0]
-	if(getDataAsBinary):
-		dataType = bool
-	else:
-		if(getDataAsInt):
-			dataType = int
-		else:
-			dataType = float
 	
-	if(getDataAsBinary):
+	if(dataType == bool):
 		xPOStagActive = True
 		xPOStagInactive = False	
 	else:
@@ -678,16 +696,16 @@ def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSun
 	
 	#print(train_x)
 	
-	if(not getDataAsBinary):	
+	if(dataType != bool):	
 		# Convert x/y data to float32/uint8.
-		if(getDataAsInt):
+		if(dataType == int):
 			train_x, test_x = np.array(train_x, np.int32), np.array(test_x, np.int32)
 		else:
 			train_x, test_x = np.array(train_x, np.float32), np.array(test_x, np.float32)
 		train_y, test_y = np.array(train_y, np.uint8), np.array(test_y, np.uint8)
 		#https://www.tensorflow.org/api_docs/python/tf/keras/datasets/mnist/load_data?version=stable
 		#https://medium.com/@HojjatA/could-not-find-valid-device-for-node-while-eagerly-executing-8f2ff588d1e
-	
+
 	return numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 
 
@@ -722,3 +740,103 @@ def generatePOSambiguityInfoUnambiguousPermutationArray(POSambiguityInfoUnambigu
 			POSambiguityInfoUnambiguousPermutationLocal[wordIndex] = POSambiguityInfo
 			generatePOSambiguityInfoUnambiguousPermutationArray(POSambiguityInfoUnambiguousPermutationArray, POSambiguityInfoPermutation, POSambiguityInfoUnambiguousPermutationLocal, wordIndex+1)
 
+
+#useSmallSentenceLengths: eliminate smaller sentences from dataset (do not crop them)
+def loadDatasetType4(datasetFileNameX, sequentialInputTypesMaxLength, useSmallSentenceLengths, sequentialInputTypeTrainWordVectors):
+	
+	splitTextDatasetByWikiTags = True
+	
+	absFilePath = createFileAbsPath(datasetFileNameX)
+	f = open(absFilePath)
+	text = f.read()	#f.readlines()
+	
+	articles = []
+	if(splitTextDatasetByWikiTags):
+		articleDelimiter = "ARTICLEDELIMITER"
+		text = text.replace("</doc>\n","")
+		text = re.sub('\<doc id(.*)', articleDelimiter, text)	#nedit re: \<doc id(.*)
+		#print("text = ", text)
+		articlesText = text.split(articleDelimiter)
+		#print("articlesText = ", articlesText)
+	else:
+		articlesText = []
+		articlesText.append(text)
+		
+	for articleIndex, article in enumerate(articlesText):
+		#print("\tarticleIndex = ", articleIndex)
+		paragraphsText = article.split('\n\n')
+		paragraphs = []
+		for paragraphIndex, paragraph in enumerate(paragraphsText):
+			#print("\t\tparagraphIndex = ", paragraphIndex)
+			sentencesText = tokenize.sent_tokenize(paragraph)
+			sentences = []
+			for sentenceIndex, sentence in enumerate(sentencesText):
+				#print("\t\t\tsentenceIndex = ", sentenceIndex)
+				wordsText = tokenize.word_tokenize(sentence)
+				sentenceLengthCheck = True
+				if(useSmallSentenceLengths):
+					if(len(wordsText) > sequentialInputTypesMaxLength[1]):
+						sentenceLengthCheck = False				
+				if(sentenceLengthCheck):
+					if(sequentialInputTypeTrainWordVectors):
+						words = []
+						for wordIndex, word in enumerate(wordsText):
+							#print("\t\t\t\twordIndex = ", wordIndex)
+							charactersText = list(word)
+							characters = []
+							for characterIndex, character in enumerate(charactersText):
+								#print("\t\t\t\t\tcharacterIndex = ", characterIndex)
+								characters.append(character)	
+							words.append(characters)
+						sentence = words
+						sentences.append(sentence)
+					else:
+						#print("wordsText = ", wordsText)
+						sentences.append(wordsText)
+			paragraphs.append(sentences)
+		articles.append(paragraphs)
+		
+	#print("articles = ", articles)
+		
+	return articles
+
+
+def equaliseClassExamples(xRaw, yRaw):
+
+	numberOfClasses = int(np.amax(yRaw))
+	#print("numberOfClasses = ", numberOfClasses)
+
+	veryLargeInt = 9999999
+	classIndexCountMin = 0	
+	classIndexCountMinValue = veryLargeInt
+	for classIndex in range(1, numberOfClasses+1):
+		classIndexCount = np.count_nonzero(yRaw == classIndex)
+		#print("classIndexCount = ", classIndexCount)
+		if(classIndexCount < classIndexCountMinValue):
+			classIndexCountMin = classIndex
+			classIndexCountMinValue = classIndexCount
+	#print("classIndexCountMin = ", classIndexCountMin)
+	#print("classIndexCountMinValue = ", classIndexCountMinValue)
+	
+	xRawClassFilteredList = []
+	yRawClassFilteredList = []
+	
+	for classIndex in range(1, numberOfClasses+1):
+		xRawClassFiltered, yRawClassFiltered = ANNtf2_operations.filterNParraysByClassTarget(xRaw, yRaw, classTargetFilterIndex=classIndex)
+		xRawClassFiltered = xRawClassFiltered[0:classIndexCountMinValue] 
+		yRawClassFiltered = yRawClassFiltered[0:classIndexCountMinValue]
+		xRawClassFilteredList.append(xRawClassFiltered)
+		yRawClassFilteredList.append(yRawClassFiltered)
+		#print("xRawClassFiltered.shape = ", xRawClassFiltered.shape)
+		#print("yRawClassFiltered.shape = ", yRawClassFiltered.shape)
+
+	#collapse 2d list into 1d list
+	xRawClassFilteredList = [j for sub in xRawClassFilteredList for j in sub]
+	yRawClassFilteredList = [j for sub in yRawClassFilteredList for j in sub]		
+	xRawEqualised = np.array(xRawClassFilteredList)
+	yRawEqualised = np.array(yRawClassFilteredList)
+
+	#print("xRawEqualised = ", xRawEqualised)
+	#print("yRawEqualised = ", yRawEqualised)
+	
+	return xRawEqualised, yRawEqualised

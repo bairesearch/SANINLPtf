@@ -129,7 +129,7 @@ if(algorithm == "SANI"):
 			onlyAddPOSunambiguousInputToTrain = False
 	elif(dataset == "POStagSequence"):
 		#pass
-		onlyPriorUnidirectionalPOSinputToTrain = True
+		addOnlyPriorUnidirectionalPOSinputToTrain = True
 		generatePOSunambiguousOutput = False	#assume batchY is already pos unambiguous
 					
 			
@@ -299,7 +299,7 @@ def loadDataset(fileIndex):
 
 	numberOfLayers = 0
 	if(dataset == "POStagSequence"):
-		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType1(datasetType1FileNameX, datasetType1FileNameY, onlyPriorUnidirectionalPOSinputToTrain)
+		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType1(datasetType1FileNameX, datasetType1FileNameY, addOnlyPriorUnidirectionalPOSinputToTrain)
 	elif(dataset == "POStagSentence"):
 		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType3(datasetType3FileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths)
 	elif(dataset == "SmallDataset"):

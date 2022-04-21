@@ -165,7 +165,8 @@ def neuralNetworkPropagationSANI(x):
 		#TMax	#mutable time vector (dim: batchSize*n_h[l]) - same as TMaxSeq[numberOfSequentialInputs-1]
 		#TMin	#mutable time vector (dim: batchSize*n_h[l]) - same as TMinSeq[numberOfSequentialInputs-1]
 			
-		
+	x = tf.dtypes.cast(x, tf.int32)	#SANItf2_algorithmSANIsharedModulesBinary expects input as int (loadDatasetTypeX returns float by default)
+	
 	batchSize = x.shape[0]
 	
 	#optimise feed length based on max sentence length in batch:
@@ -581,5 +582,9 @@ def neuralNetworkPropagationSANI(x):
 	return pred
 	
 
+def activationFunction(Z):
+	A = tf.nn.relu(Z)
+	#A = tf.nn.sigmoid(Z)
+	return A				
 	
 
