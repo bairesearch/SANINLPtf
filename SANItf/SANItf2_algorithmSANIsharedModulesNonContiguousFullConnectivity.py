@@ -35,7 +35,7 @@ from SANItf2_algorithmSANIglobalDefs import *
 import ANNtf2_globalDefs
 
 
-printStatus = True
+printStatus = False
 
 #parameters
 #static parameters (convert from tf.variable to tf.constant?):
@@ -286,9 +286,9 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 					
 					AseqInput = A[generateParameterName(l2, "A")]
 					WseqCurrent = Wseq[generateParameterNameSeqSkipLayers(l, l2, s, "Wseq")]
-					#print("AseqInput = ", AseqInput)
-					#print("WseqCurrent = ", WseqCurrent)	
-					ZseqHypotheticalAddition = tf.matmul(AseqInput, Wseq[generateParameterNameSeqSkipLayers(l, l2, s, "Wseq")])	
+					#print("AseqInput = ", AseqInput.shape)
+					#print("WseqCurrent = ", WseqCurrent.shape)	
+					ZseqHypotheticalAddition = tf.matmul(AseqInput, WseqCurrent)
 					#print("ZseqHypotheticalAddition = ", ZseqHypotheticalAddition)
 					
 					ZseqHypothetical = tf.add(ZseqHypothetical, ZseqHypotheticalAddition)
@@ -296,8 +296,9 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 					
 				ZseqHypothetical = tf.add(ZseqHypothetical, Bseq[generateParameterNameSeq(l, s, "Bseq")])
 					
-				#check output threshold
-				ZseqPassThresold = tf.math.greater(ZseqHypothetical, sequentialInputActivationThreshold)
+				#threshold output/check output threshold (done later)
+				ZseqThresholded, ZseqPassThresold = sequentialActivationFunction(ZseqHypothetical)	
+				#OLD:	#ZseqPassThresold = tf.math.greater(ZseqHypothetical, sequentialInputActivationThreshold)
 			else:
 				print("neuralNetworkPropagationSANI error: requires supportFullConnectivity")
 
@@ -314,27 +315,34 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			#apply sequential validation matrix
 			ZseqCurrent = tf.multiply(ZseqHypothetical, VseqFloat)
 				
-			if(performSummationOfSubInputsNonlinear):	#CHECKTHIS: should be made redundant by choice of sequentialInputCombinationModeSummation
-				AseqCurrent = activationFunction(ZseqCurrent)
-			else:
-				if(performSummationOfSubInputsBinary):
-					ZseqCurrentBool = tf.math.greater(ZseqCurrent, 0.0)
-					AseqCurrent = tf.dtypes.cast(ZseqCurrentBool, tf.float32)  
-				else:
-					AseqCurrent = ZseqCurrent
+			#regenerate Aseq after Zseq update
+			AseqCurrent, ZseqPassThresold = sequentialActivationFunction(ZseqCurrent)
+			#OLD:	#AseqCurrent, _ = sequentialActivationFunction(ZseqCurrent)
 				
-			#update Vseq/Zseq/Aseq
+			ZseqPassThresoldInt = tf.dtypes.cast(ZseqPassThresold, tf.int32)
+			ZseqPassThresoldNot = tf.math.logical_not(ZseqPassThresold)
+			ZseqPassThresoldNotInt = tf.dtypes.cast(ZseqPassThresoldNot, tf.int32)
+
+			#calculate updated Vseq/Zseq/Aseq activation matrix taking into account previously activated sectors (batchIndices, neurons):
 			VseqUpdated = tf.math.logical_and(ZseqPassThresold, VseqExisting)
+			VseqUpdated = tf.math.logical_or(Vseq[generateParameterNameSeq(l, s, "Vseq")], VseqUpdated)	
+			ZseqUpdated = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))	#zero all Zseq sectors (batchIndices, neurons) which pass threshold; prepare for addition	
+			ZseqUpdated = tf.add(ZseqUpdated, ZseqCurrent)
+			AseqUpdated, _ = sequentialActivationFunction(ZseqUpdated)
+			#OLD:	#VseqUpdated = tf.math.logical_and(ZseqPassThresold, VseqExisting)	#ZseqUpdated = ZseqCurrent	#AseqUpdated = AseqCurrent
 			
 			#print("VseqExisting = ", VseqExisting)	
 			#print("ZseqPassThresold = ", ZseqPassThresold)
 			if(printStatus):
 				print("VseqUpdated = ", VseqUpdated)
+				#print("ZseqPassThresold = ", ZseqPassThresold)
+				#print("ZseqCurrent = ", ZseqCurrent)
+				#print("VseqFloat = ", VseqFloat)
 
 			#update parameter storage;
 			Vseq[generateParameterNameSeq(l, s, "Vseq")] = VseqUpdated
-			Zseq[generateParameterNameSeq(l, s, "Zseq")] = ZseqCurrent
-			Aseq[generateParameterNameSeq(l, s, "Aseq")] = AseqCurrent
+			Zseq[generateParameterNameSeq(l, s, "Zseq")] = ZseqUpdated
+			Aseq[generateParameterNameSeq(l, s, "Aseq")] = AseqUpdated
 			
 			#if(useHebbianLearningRuleApply):
 			#	for l2 in range(0, l2Max+1):
@@ -440,7 +448,21 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 		pred = ZlastLayer
 	
 	return pred
-	
+
+def sequentialActivationFunction(Zseq):
+	#threshold output/check output threshold
+	if(performThresholdOfSubInputsNonlinear):
+		ZseqThresholded = activationFunction(Zseq)	#Aseq
+		ZseqPassThresold = tf.math.greater(ZseqThresholded, 0.0)
+	elif(performThresholdOfSubInputsBinary):
+		ZseqPassThresold = tf.math.greater(Zseq, 0.0)
+		ZseqThresholded = tf.dtypes.cast(ZseqPassThresold, tf.float32)  
+	else:
+		ZseqPassThresold = tf.math.greater(Zseq, sequentialInputActivationThreshold)
+		ZseqThresholded = tf.multiply(Zseq, tf.dtypes.cast(ZseqPassThresold, tf.float32))	#Aseq	
+
+	return ZseqThresholded, ZseqPassThresold	
+		
 def activationFunction(Z):
 	A = tf.nn.relu(Z)
 	#A = tf.nn.sigmoid(Z)
