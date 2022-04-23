@@ -28,6 +28,7 @@ algorithmSANI = "sharedModules"
 #algorithmSANI = "repeatedModules"
 
 createSmallNetworkForDebug = True
+printStatus = True
 
 useSequentialInputs = True
 if(useSequentialInputs):
@@ -37,40 +38,31 @@ else:
 
 useTcontiguity = False
 
-useFullConnectivitySparsity = False
+useFullConnectivitySparsity = False	
 useLearningRuleBackpropagation = False
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	useLearningRuleBackpropagation = True	#optional (untested)
-	useFullConnectivitySparsity = True	#sparsity is defined within fully connected weights
-	supportFullConnectivity = True	#full connectivity between layers	
-	supportFeedback = False	#optional 
+	supportFullConnectivity = True	#mandatory - full connectivity between layers	
+	if(supportFullConnectivity):
+		useFullConnectivitySparsity = True	#sparsity is defined within fully connected weights
+		supportFeedback = False	#optional 
 	useHebbianLearningRule = False
-#	if(useHebbianLearningRule):
-#		useFullConnectivitySparsity = True
-#		useHebbianLearningRulePositiveWeights = True
-#		neuronActivationFiringThreshold = 1.0
-#		useHebbianLearningRuleApply = True
-#		if(useHebbianLearningRuleApply):
-#			#not currently compatible with supportFullConnectivity:supportFeedback
-#			#these parameters require calibration:
-#			hebbianLearningRate = 0.01
-#			minimumConnectionWeight = 0.0
-#			maximumConnectionWeight = 1.0
 elif(algorithmSANI == "sharedModulesBinary"):
-	useTcontiguity = False	#optional (default:False from 19 April 2022)
+	useTcontiguity = False	#optional
 	useLearningRuleBackpropagation = True	#optional (untested)
 	supportFullConnectivity = False	#unimplemented (could be added in future)
 	supportFeedback = False	#unimplemented
 elif(algorithmSANI == "sharedModules"):
-	useTcontiguity = False	#optional (default:False from 19 April 2022)
+	useTcontiguity = False	#optional
 	useLearningRuleBackpropagation = True	#optional (untested)
 	supportFullConnectivity = False	#unimplemented (could be added in future)
 	supportFeedback = False	#unimplemented
 elif(algorithmSANI == "repeatedModules"):
-	useTcontiguity = False	#mandatory	#CHECKTHIS
+	useTcontiguity = False	#optional
 	useLearningRuleBackpropagation = True	#optional (untested)
 	supportFullConnectivity = False	#unimplemented (could be added in future)
 	supportFeedback = False	#unimplemented
+
 #supportFeedback note: activation/A must be maintained across multiple iteration forward propagation through layers
 	#currently requires SANIsharedModules=True
 	#SANIsharedModules=False would need to be upgraded to perform multiple forward pass iterations
@@ -141,7 +133,7 @@ elif(algorithmSANI == "repeatedModules"):
 	inputNumberFeaturesForCurrentWordOnly = False	#NA (not used)
 
 if(allowMultipleSubinputsPerSequentialInput):
-	layerSizeConvergence = True	#CHECKTHIS
+	layerSizeConvergence = False #OLD: True	#CHECKTHIS
 else:
 	layerSizeConvergence = False
 
@@ -379,40 +371,33 @@ elif(algorithmSANI == "repeatedModules"):
 
 		
 #set parameters record:
-if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):	
-	recordNetworkWeights = False	#need to modify weights not just record them
-	if(recordNetworkWeights):
-		recordSubInputsWeighted = False	#batchSize must equal 1
-		recordSequentialInputsWeighted = False
-		recordNeuronsWeighted = False
-elif(algorithmSANI == "sharedModulesBinary"):
-	if(not ANNtf2_globalDefs.testHarness):	
-		recordNetworkWeights = True
-		if(recordNetworkWeights):
-			recordSubInputsWeighted = True
-			recordSequentialInputsWeighted = False	#may not be necessary (only used if can split neuron sequential inputs)
-			recordNeuronsWeighted = True
-			#FUTURE: prune network neurons/connections based on the relative strength of these weights
-	else:
-		recordNetworkWeights = False
-		recordSubInputsWeighted = False
-		recordSequentialInputsWeighted = False
-		recordNeuronsWeighted = False
-elif(algorithmSANI == "sharedModules"):
-	if(useSparseTensors):
-		if(allowMultipleSubinputsPerSequentialInput):		
+recordNetworkWeights = False	#initialise
+if(not useLearningRuleBackpropagation):		
+	#rationale: prune network neurons/connections based on the relative strength of these weights
+	#need to modify weights not just record them
+	if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):	
+		recordNetworkWeights = False	#not available
+	elif(algorithmSANI == "sharedModulesBinary"):
+		if(not ANNtf2_globalDefs.testHarness):	
 			recordNetworkWeights = True
 			if(recordNetworkWeights):
 				recordSubInputsWeighted = True
 				recordSequentialInputsWeighted = False	#may not be necessary (only used if can split neuron sequential inputs)
 				recordNeuronsWeighted = True
-				#FUTURE: prune network neurons/connections based on the relative strength of these weights
+	elif(algorithmSANI == "sharedModules"):
+		if(useSparseTensors):
+			if(allowMultipleSubinputsPerSequentialInput):
+				recordNetworkWeights = True
+				if(recordNetworkWeights):
+					recordSubInputsWeighted = True
+					recordSequentialInputsWeighted = False	#may not be necessary (only used if can split neuron sequential inputs)
+					recordNeuronsWeighted = True
+			else:
+				recordNetworkWeights = False	#not yet coded
 		else:
 			recordNetworkWeights = False	#not yet coded
-	else:
-		recordNetworkWeights = False	#not yet coded
-elif(algorithmSANI == "repeatedModules"): 	
-	recordNetworkWeights = False
+	elif(algorithmSANI == "repeatedModules"): 	
+		recordNetworkWeights = False	#not available
 
 
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
@@ -437,11 +422,23 @@ elif(algorithmSANI == "sharedModules"):
 			supportSkipLayers = True
 	else:
 		supportSkipLayers = True
-else:
+elif(algorithmSANI == "repeatedModules"):
 	supportSkipLayers = True
 	maxNumberSubinputsPerSequentialInput = -1	#NA
 
 	
+#if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
+#	if(useHebbianLearningRule):
+#		useFullConnectivitySparsity = True
+#		useHebbianLearningRulePositiveWeights = True
+#		neuronActivationFiringThreshold = 1.0
+#		useHebbianLearningRuleApply = True
+#		if(useHebbianLearningRuleApply):
+#			#not currently compatible with supportFullConnectivity:supportFeedback
+#			#these parameters require calibration:
+#			hebbianLearningRate = 0.01
+#			minimumConnectionWeight = 0.0
+#			maximumConnectionWeight = 1.0
 
 
 

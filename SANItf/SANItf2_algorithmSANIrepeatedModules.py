@@ -156,6 +156,24 @@ def neuralNetworkPropagationSANI(x):
 	#if(supportSkipLayers):
 		#AprevLayerAll	#output vector (dim: batchSize*(n_h[0]+n_h[1]+...n_h[L]))
 
+	#combination vars (per layer);		
+	#if(allowMultipleSubinputsPerSequentialInput):
+		#if(performSummationOfSequentialInputs):
+			#these are all used for different methods of sequential input summation:
+			#if(performSummationOfSequentialInputsWeighted):
+				#if(performSummationOfSubInputsNonlinear):
+					#AseqWeightedSum	#(dim: batchSize*n_h[l])
+				#else:
+					#ZseqWeightedSum	#(dim: batchSize*n_h[l])
+			#else:
+				#if(performSummationOfSubInputsNonlinear):
+					#AseqSum	#(dim: batchSize*n_h[l])
+				#else:
+					#ZseqSum	#(dim: batchSize*n_h[l])
+	#else:
+		#if(performSummationOfSequentialInputsWeighted):
+			#AseqInputWeightedSum	#(dim: batchSize*n_h[l])	#aka ZseqWeightedSum
+
 	#Tcontiguity vars;
 	#if(enforceTcontiguityConstraints):
 		#neuron sequential input vars;
@@ -178,61 +196,25 @@ def neuralNetworkPropagationSANI(x):
 			#tMaxLayerAll	#mutable time vector (dim: batchSize*(n_h[0]+n_h[1]+...n_h[L]))
 		#combination vars (per layer);
 		#tMidSeqSum	#(dim: batchSize*n_h[l])
-		
-	#combination vars (per layer);		
-	#if(allowMultipleSubinputsPerSequentialInput):
-		#if(performSummationOfSequentialInputs):
-			#these are all used for different methods of sequential input summation:
-			#if(performSummationOfSequentialInputsWeighted):
-				#if(performSummationOfSubInputsNonlinear):
-					#AseqWeightedSum	#(dim: batchSize*n_h[l])
-				#else:
-					#ZseqWeightedSum	#(dim: batchSize*n_h[l])
-			#else:
-				#if(performSummationOfSubInputsNonlinear):
-					#AseqSum	#(dim: batchSize*n_h[l])
-				#else:
-					#ZseqSum	#(dim: batchSize*n_h[l])
-	#else:
-		#if(performSummationOfSequentialInputsWeighted):
-			#AseqInputWeightedSum	#(dim: batchSize*n_h[l])	#aka ZseqWeightedSum
-			
+				
 			
 	AprevLayer = x
 	
 	for l in range(1, numberOfLayers+1):
 		
-		#print("\tl = " + str(l))
+		if(printStatus):
+			print("\tl = " + str(l))
 		
 		#declare variables used across all sequential input of neuron
 		#primary vars;
 		if(l == 1):
 			if(supportSkipLayers):
 				AprevLayerAll = AprevLayer	#x
-			if(enforceTcontiguityConstraints):
-				tMinL0Row = tf.range(0, n_h[l-1], delta=1, dtype=tf.int32)	#n_h[l-1] = datasetNumFeatures
-				tMidL0Row = tf.range(0, n_h[l-1], delta=1, dtype=tf.int32)
-				tMaxL0Row = tf.range(0, n_h[l-1], delta=1, dtype=tf.int32)
-				multiples = tf.constant([batchSize, 1], tf.int32) 
-				tMin = tf.tile(tf.reshape(tMinL0Row, [1, n_h[l-1]]), multiples)
-				tMid = tf.tile(tf.reshape(tMidL0Row, [1, n_h[l-1]]), multiples)
-				tMax = tf.tile(tf.reshape(tMaxL0Row, [1, n_h[l-1]]), multiples)
-				if(supportSkipLayers):
-					tMinLayerAll = tMin
-					tMidLayerAll = tMid
-					tMaxLayerAll = tMax
 		else:
 			if(supportSkipLayers):
 				AprevLayerAll = tf.concat([AprevLayerAll, AprevLayer], 1)
-			if(enforceTcontiguityConstraints):
-				tMin = tMinNext
-				tMid = tMidNext
-				tMax = tMaxNext
-				if(supportSkipLayers):
-					tMinLayerAll = tf.concat([tMinLayerAll, tMin], 1)
-					tMidLayerAll = tf.concat([tMidLayerAll, tMid], 1)
-					tMaxLayerAll = tf.concat([tMaxLayerAll, tMax], 1)
-
+		if(enforceTcontiguityConstraints):
+			tMin, tMid, tMax, tMinLayerAll, tMidLayerAll, tMaxLayerAll = TcontiguityLayerInitialiseTemporaryVars(l)
 					
 		#combination vars;
 		if(enforceTcontiguityConstraints):
@@ -256,38 +238,9 @@ def neuralNetworkPropagationSANI(x):
 			
 		for s in range(numberOfSequentialInputs):
 			
-			#print("\t\ts = " + str(s))
-			
-			if(enforceTcontiguityConstraints):
-				#calculate tMin/Mid/Max for sequential input
-				if(supportFullConnectivity):
-					print("neuralNetworkPropagationSANI error: supportFullConnectivity incomplete")	
-				else:
-					#print("tsLxSx1" + str(tf.timestamp(name="tsLxSx1")))
-					if(supportSkipLayers):
-						CseqCrossLayerBase = tf.gather(n_h_cumulative['n_h_cumulative'], CseqLayer[generateParameterNameSeq(l, s, "CseqLayer")])
-						CseqCrossLayer = tf.add(Cseq[generateParameterNameSeq(l, s, "Cseq")], CseqCrossLayerBase)
-						tMinSeq = tf.gather(tMinLayerAll, CseqCrossLayer, axis=1)
-						tMidSeq = tf.gather(tMidLayerAll, CseqCrossLayer, axis=1)
-						tMaxSeq = tf.gather(tMaxLayerAll, CseqCrossLayer, axis=1)	
-					else:
-						tMinSeq = tf.gather(tMin, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
-						tMidSeq = tf.gather(tMid, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
-						tMaxSeq = tf.gather(tMax, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
-					tMinSeqTest = tMinSeq
-					tMidSeqTest = tMidSeq
-					tMaxSeqTest = tMaxSeq
-					if(allowMultipleSubinputsPerSequentialInput):
-						if not(performIndependentSubInputValidation):
-							tMinSeqReduced = tf.math.reduce_min(tMinSeq, axis=1)
-							tMidSeqReduced = tf.math.reduce_mean(tMidSeq, axis=1)
-							tMaxSeqReduced = tf.math.reduce_max(tMaxSeq, axis=1)
-							tMinSeqTest = tMinSeqReduced
-							tMidSeqTest = tMidSeqReduced
-							tMaxSeqTest = tMaxSeqReduced
+			if(printStatus):
+				print("\t\ts = " + str(s))
 
-			#print("tsLxSx2" + str(tf.timestamp(name="tsLxSx2")))
-	
 			#calculate validation matrix based upon sequentiality requirements
 			if(s == 0):
 				if(performIndependentSubInputValidation):
@@ -299,30 +252,17 @@ def neuralNetworkPropagationSANI(x):
 					multiples = tf.constant([1, numberSubinputsPerSequentialInput, 1], tf.int32) 
 					#printShape(tMinSeqPrev, "tMinSeqPrev")
 					VseqPrevTest = tf.tile(tf.reshape(VseqPrev, [batchSize, 1, n_h[l]]), multiples)
-					if(enforceTcontiguityConstraints):
-						tMinSeqPrevTest = tf.tile(tf.reshape(tMinSeqPrev, [batchSize, 1, n_h[l]]), multiples)
-						tMidSeqPrevTest = tf.tile(tf.reshape(tMidSeqPrev, [batchSize, 1, n_h[l]]), multiples)
-						tMaxSeqPrevTest = tf.tile(tf.reshape(tMaxSeqPrev, [batchSize, 1, n_h[l]]), multiples)
 				else:
 					VseqPrevTest = VseqPrev
-					if(enforceTcontiguityConstraints):
-						tMinSeqPrevTest = tMinSeqPrev
-						tMidSeqPrevTest = tMidSeqPrev
-						tMaxSeqPrevTest = tMaxSeqPrev
-
-				if(enforceTcontiguityConstraints):
-					if(sequentialityMode == "default"):
-						#the first sub input of sequential input #2 must fire after the last subinput of sequential input #1
-						Vseq = tf.math.greater(tMinSeqTest, tMaxSeqPrevTest)
-					elif(sequentialityMode == "temporalCrossoverAllowed"):
-						#the last sub input of sequential input #1 can fire after the first subinput of sequential input #2
-						Vseq = tf.math.greater(tMaxSeqTest, tMaxSeqPrevTest)
-					elif(sequentialityMode == "contiguousInputEnforced"):
-						#the last sub input of sequential input #1 must fire immediately before the first subinput of sequentialInput #2
-						Vseq = tf.math.equal(tMinSeqTest, tMaxSeqPrevTest+1)	#TODO: verify that the +1 here gets properly broadcasted	
-					Vseq = tf.math.logical_and(Vseq, VseqPrevTest)	#if previous sequentiality check fails, then all future sequentiality checks must fail
-				else:
-					Vseq = VseqPrevTest	#if previous sequentiality check fails, then all future sequentiality checks must fail
+					
+			#print("tsLxSx2" + str(tf.timestamp(name="tsLxSx2")))
+			if(enforceTcontiguityConstraints):
+				VseqUpdated, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest = TcontiguitySequentialInputInitialiseTemporaryVars(l, s, VseqPrevTest,  tMinLayerAll, tMidLayerAll, tMaxLayerAll, tMin, tMid, tMax, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev)
+			else:
+				if(s > 0):
+					VseqUpdated = VseqPrevTest	#if previous sequentiality check fails, then all future sequentiality checks must fail
+			if(s > 0):
+				Vseq = VseqUpdated
 					
 			VseqInt = tf.dtypes.cast(Vseq, tf.int32)
 			VseqFloat = tf.dtypes.cast(VseqInt, tf.float32)
@@ -393,64 +333,7 @@ def neuralNetworkPropagationSANI(x):
 					Aseq, _ = activationFunction(Zseq)
 			
 			if(enforceTcontiguityConstraints):
-				#generate reduced versions of tMin/Mid/MaxSeq with only sequentially valid elements
-				if(performIndependentSubInputValidation):
-					if(performSummationOfSubInputs):
-						#mask tMin/Mid/MaxSeq based on sequentiality validation matrix 
-						VseqNot = tf.logical_not(Vseq)  
-						VseqNotInt = tf.dtypes.cast(VseqNot, tf.int32)
-						VseqSumAxis1 = tf.math.reduce_sum(VseqInt, axis=1)
-						VseqIntMin = tf.add(tf.multiply(VseqNotInt, veryLargeInt), 1)  	#if VseqInt[x] = 0/False, then VseqIntMin = veryLargeInt. If VseqInt[x] = 1/True, then VseqIntMin = 1
-						VseqIntMid = tf.multiply(VseqInt, 1)				#if VseqInt[x] = 0/False, then VseqIntMid = 0. If VseqInt[x] = 1/True, then VseqIntMid = 1
-						VseqIntMax = tf.multiply(VseqInt, 1)				#if VseqInt[x] = 0/False, then VseqIntMax = 0. If VseqInt[x] = 1/True, then VseqIntMax = 1
-						tMinSeqOnlyValid = tf.multiply(tMinSeq, VseqIntMin)
-						tMidSeqOnlyValid = tf.multiply(tMidSeq, VseqIntMid)
-						tMaxSeqOnlyValid = tf.multiply(tMaxSeq, VseqIntMax)
-						tMinSeqValidatedReduced = tf.math.reduce_min(tMinSeqOnlyValid, axis=1)
-						tMidSeqValidatedReduced = tf.divide(tf.math.reduce_sum(tMidSeqOnlyValid, axis=1), VseqSumAxis1)
-						tMaxSeqValidatedReduced = tf.math.reduce_max(tMaxSeqOnlyValid, axis=1)
-						tMinSeqValidatedReduced = tf.dtypes.cast(tMinSeqValidatedReduced, tf.int32)
-						tMidSeqValidatedReduced = tf.dtypes.cast(tMidSeqValidatedReduced, tf.int32)
-						tMaxSeqValidatedReduced = tf.dtypes.cast(tMaxSeqValidatedReduced, tf.int32)
-						VseqReduced = tf.reduce_any(Vseq, axis=1)
-					else:
-						#take subinput with max input signal (AseqInput)
-						tMinSeqValidatedReduced = tMinSeq[:, ZseqIndex, :]
-						tMidSeqValidatedReduced = tMidSeq[:, ZseqIndex, :]
-						tMaxSeqValidatedReduced = tMaxSeq[:, ZseqIndex, :]
-						VseqReduced = Vseq[:, ZseqIndex, :]
-					
-				#calculate tMin/Mid/MaxNext (ie the tMin/Mid/Max values to be assigned to the current layer after it has been processed):
-				if(s == 0):
-					if(performIndependentSubInputValidation):
-						tMinSeqFirst = tMinSeqValidatedReduced
-					else:
-						tMinSeqFirst = tMinSeqTest
-				if(s == numberOfSequentialInputs-1):
-					if(performIndependentSubInputValidation):
-						tMaxSeqLast = tMaxSeqValidatedReduced
-					else:
-						tMaxSeqLast = tMaxSeqTest
-				if(performIndependentSubInputValidation):
-					tMidSeqSum = tf.math.add(tMidSeqSum, tMidSeqValidatedReduced)
-				else:
-					tMidSeqSum = tf.math.add(tMidSeqSum, tMidSeqTest)
-
-				if(s == numberOfSequentialInputs-1):
-					tMinNext = tMinSeqFirst
-					tMidNext = tf.dtypes.cast(tf.math.divide(tMidSeqSum, s+1), tf.int32)
-					tMaxNext = tMaxSeqLast			
-
-				if(performIndependentSubInputValidation):
-					tMinSeqPrev = tMinSeqValidatedReduced
-					tMidSeqPrev = tMidSeqValidatedReduced
-					tMaxSeqPrev = tMaxSeqValidatedReduced
-					VseqPrev = VseqReduced
-				else:
-					tMinSeqPrev = tMinSeqTest
-					tMidSeqPrev = tMidSeqTest
-					tMaxSeqPrev = tMaxSeqTest
-					VseqPrev = Vseq
+				VseqPrev, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev = TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest)
 			else:
 				VseqPrev = Vseq
 			
@@ -524,3 +407,156 @@ def activationFunction(Z):
 	#A = tf.nn.sigmoid(Z)
 	return A				
 
+ 
+def TcontiguityLayerInitialiseTemporaryVars(l):
+	tMin, tMid, tMax, tMinLayerAll, tMidLayerAll, tMaxLayerAll = (None, None, None, None, None, None)
+
+	#declare variables used across all sequential input of neuron
+	#primary vars;
+	if(l == 1):
+		tMinL0Row = tf.range(0, n_h[l-1], delta=1, dtype=tf.int32)	#n_h[l-1] = datasetNumFeatures
+		tMidL0Row = tf.range(0, n_h[l-1], delta=1, dtype=tf.int32)
+		tMaxL0Row = tf.range(0, n_h[l-1], delta=1, dtype=tf.int32)
+		multiples = tf.constant([batchSize, 1], tf.int32) 
+		tMin = tf.tile(tf.reshape(tMinL0Row, [1, n_h[l-1]]), multiples)
+		tMid = tf.tile(tf.reshape(tMidL0Row, [1, n_h[l-1]]), multiples)
+		tMax = tf.tile(tf.reshape(tMaxL0Row, [1, n_h[l-1]]), multiples)
+		if(supportSkipLayers):
+			tMinLayerAll = tMin
+			tMidLayerAll = tMid
+			tMaxLayerAll = tMax
+	else:
+		tMin = tMinNext
+		tMid = tMidNext
+		tMax = tMaxNext
+		if(supportSkipLayers):
+			tMinLayerAll = tf.concat([tMinLayerAll, tMin], 1)
+			tMidLayerAll = tf.concat([tMidLayerAll, tMid], 1)
+			tMaxLayerAll = tf.concat([tMaxLayerAll, tMax], 1)
+				
+	return tMin, tMid, tMax, tMinLayerAll, tMidLayerAll, tMaxLayerAll
+
+def TcontiguitySequentialInputInitialiseTemporaryVars(l, s, VseqPrevTest, tMinLayerAll, tMidLayerAll, tMaxLayerAll, tMin, tMid, tMax, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev):
+
+	VseqUpdated, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest = (None, None, None, None, None, None, None)
+
+	#calculate tMin/Mid/Max for sequential input
+	if(supportFullConnectivity):
+		print("neuralNetworkPropagationSANI error: supportFullConnectivity incomplete")	
+	else:
+		#print("tsLxSx1" + str(tf.timestamp(name="tsLxSx1")))
+		if(supportSkipLayers):
+			CseqCrossLayerBase = tf.gather(n_h_cumulative['n_h_cumulative'], CseqLayer[generateParameterNameSeq(l, s, "CseqLayer")])
+			CseqCrossLayer = tf.add(Cseq[generateParameterNameSeq(l, s, "Cseq")], CseqCrossLayerBase)
+			tMinSeq = tf.gather(tMinLayerAll, CseqCrossLayer, axis=1)
+			tMidSeq = tf.gather(tMidLayerAll, CseqCrossLayer, axis=1)
+			tMaxSeq = tf.gather(tMaxLayerAll, CseqCrossLayer, axis=1)	
+		else:
+			tMinSeq = tf.gather(tMin, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
+			tMidSeq = tf.gather(tMid, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
+			tMaxSeq = tf.gather(tMax, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
+		tMinSeqTest = tMinSeq
+		tMidSeqTest = tMidSeq
+		tMaxSeqTest = tMaxSeq
+		if(allowMultipleSubinputsPerSequentialInput):
+			if not(performIndependentSubInputValidation):
+				tMinSeqReduced = tf.math.reduce_min(tMinSeq, axis=1)
+				tMidSeqReduced = tf.math.reduce_mean(tMidSeq, axis=1)
+				tMaxSeqReduced = tf.math.reduce_max(tMaxSeq, axis=1)
+				tMinSeqTest = tMinSeqReduced
+				tMidSeqTest = tMidSeqReduced
+				tMaxSeqTest = tMaxSeqReduced
+
+	#calculate validation matrix based upon sequentiality requirements
+	if(s > 0):
+		if(performIndependentSubInputValidation):
+			multiples = tf.constant([1, numberSubinputsPerSequentialInput, 1], tf.int32) 
+			if(enforceTcontiguityConstraints):
+				tMinSeqPrevTest = tf.tile(tf.reshape(tMinSeqPrev, [batchSize, 1, n_h[l]]), multiples)
+				tMidSeqPrevTest = tf.tile(tf.reshape(tMidSeqPrev, [batchSize, 1, n_h[l]]), multiples)
+				tMaxSeqPrevTest = tf.tile(tf.reshape(tMaxSeqPrev, [batchSize, 1, n_h[l]]), multiples)
+		else:
+			VseqPrevTest = VseqPrev
+			if(enforceTcontiguityConstraints):
+				tMinSeqPrevTest = tMinSeqPrev
+				tMidSeqPrevTest = tMidSeqPrev
+				tMaxSeqPrevTest = tMaxSeqPrev
+
+		if(sequentialityMode == "default"):
+			#the first sub input of sequential input #2 must fire after the last subinput of sequential input #1
+			VseqUpdated = tf.math.greater(tMinSeqTest, tMaxSeqPrevTest)
+		elif(sequentialityMode == "temporalCrossoverAllowed"):
+			#the last sub input of sequential input #1 can fire after the first subinput of sequential input #2
+			VseqUpdated = tf.math.greater(tMaxSeqTest, tMaxSeqPrevTest)
+		elif(sequentialityMode == "contiguousInputEnforced"):
+			#the last sub input of sequential input #1 must fire immediately before the first subinput of sequentialInput #2
+			VseqUpdated = tf.math.equal(tMinSeqTest, tMaxSeqPrevTest+1)	#TODO: verify that the +1 here gets properly broadcasted	
+		VseqUpdated = tf.math.logical_and(VseqUpdated, VseqPrevTest)	#if previous sequentiality check fails, then all future sequentiality checks must fail
+
+	return VseqUpdated, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest
+
+
+def TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest):
+
+	VseqPrev, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev = (None, None, None, None)
+	
+	#generate reduced versions of tMin/Mid/MaxSeq with only sequentially valid elements
+	if(performIndependentSubInputValidation):
+		if(performSummationOfSubInputs):
+			#mask tMin/Mid/MaxSeq based on sequentiality validation matrix 
+			VseqNot = tf.logical_not(Vseq)  
+			VseqNotInt = tf.dtypes.cast(VseqNot, tf.int32)
+			VseqSumAxis1 = tf.math.reduce_sum(VseqInt, axis=1)
+			VseqIntMin = tf.add(tf.multiply(VseqNotInt, veryLargeInt), 1)  	#if VseqInt[x] = 0/False, then VseqIntMin = veryLargeInt. If VseqInt[x] = 1/True, then VseqIntMin = 1
+			VseqIntMid = tf.multiply(VseqInt, 1)				#if VseqInt[x] = 0/False, then VseqIntMid = 0. If VseqInt[x] = 1/True, then VseqIntMid = 1
+			VseqIntMax = tf.multiply(VseqInt, 1)				#if VseqInt[x] = 0/False, then VseqIntMax = 0. If VseqInt[x] = 1/True, then VseqIntMax = 1
+			tMinSeqOnlyValid = tf.multiply(tMinSeq, VseqIntMin)
+			tMidSeqOnlyValid = tf.multiply(tMidSeq, VseqIntMid)
+			tMaxSeqOnlyValid = tf.multiply(tMaxSeq, VseqIntMax)
+			tMinSeqValidatedReduced = tf.math.reduce_min(tMinSeqOnlyValid, axis=1)
+			tMidSeqValidatedReduced = tf.divide(tf.math.reduce_sum(tMidSeqOnlyValid, axis=1), VseqSumAxis1)
+			tMaxSeqValidatedReduced = tf.math.reduce_max(tMaxSeqOnlyValid, axis=1)
+			tMinSeqValidatedReduced = tf.dtypes.cast(tMinSeqValidatedReduced, tf.int32)
+			tMidSeqValidatedReduced = tf.dtypes.cast(tMidSeqValidatedReduced, tf.int32)
+			tMaxSeqValidatedReduced = tf.dtypes.cast(tMaxSeqValidatedReduced, tf.int32)
+			VseqReduced = tf.reduce_any(Vseq, axis=1)
+		else:
+			#take subinput with max input signal (AseqInput)
+			tMinSeqValidatedReduced = tMinSeq[:, ZseqIndex, :]
+			tMidSeqValidatedReduced = tMidSeq[:, ZseqIndex, :]
+			tMaxSeqValidatedReduced = tMaxSeq[:, ZseqIndex, :]
+			VseqReduced = Vseq[:, ZseqIndex, :]
+
+	#calculate tMin/Mid/MaxNext (ie the tMin/Mid/Max values to be assigned to the current layer after it has been processed):
+	if(s == 0):
+		if(performIndependentSubInputValidation):
+			tMinSeqFirst = tMinSeqValidatedReduced
+		else:
+			tMinSeqFirst = tMinSeqTest
+	if(s == numberOfSequentialInputs-1):
+		if(performIndependentSubInputValidation):
+			tMaxSeqLast = tMaxSeqValidatedReduced
+		else:
+			tMaxSeqLast = tMaxSeqTest
+	if(performIndependentSubInputValidation):
+		tMidSeqSum = tf.math.add(tMidSeqSum, tMidSeqValidatedReduced)
+	else:
+		tMidSeqSum = tf.math.add(tMidSeqSum, tMidSeqTest)
+
+	if(s == numberOfSequentialInputs-1):
+		tMinNext = tMinSeqFirst
+		tMidNext = tf.dtypes.cast(tf.math.divide(tMidSeqSum, s+1), tf.int32)
+		tMaxNext = tMaxSeqLast			
+
+	if(performIndependentSubInputValidation):
+		tMinSeqPrev = tMinSeqValidatedReduced
+		tMidSeqPrev = tMidSeqValidatedReduced
+		tMaxSeqPrev = tMaxSeqValidatedReduced
+		VseqPrev = VseqReduced
+	else:
+		tMinSeqPrev = tMinSeqTest
+		tMidSeqPrev = tMidSeqTest
+		tMaxSeqPrev = tMaxSeqTest
+		VseqPrev = Vseq
+	
+	return VseqPrev, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev

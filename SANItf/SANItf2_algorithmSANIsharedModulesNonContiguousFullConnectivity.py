@@ -35,8 +35,6 @@ from SANItf2_algorithmSANIglobalDefs import *
 import ANNtf2_globalDefs
 
 
-printStatus = False
-
 #parameters
 #static parameters (convert from tf.variable to tf.constant?):
 Cseq = {}
@@ -344,30 +342,7 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			Zseq[generateParameterNameSeq(l, s, "Zseq")] = ZseqUpdated
 			Aseq[generateParameterNameSeq(l, s, "Aseq")] = AseqUpdated
 			
-			#if(useHebbianLearningRuleApply):
-			#	for l2 in range(0, l2Max+1):
-			#		#constrain learning (weight updates) to where VseqUpdated is True:
-			#		
-			#		AseqInput = A[generateParameterName(l2, "A")]
-			#		AseqInputSqueezed = tf.squeeze(AseqInput, axis=0)	#batchSize must equal 1
-			#		AseqInputSqueezed = tf.expand_dims(AseqInputSqueezed, axis=1)
-			#		multiples = tf.constant([1,n_h[l]], tf.int32)
-			#		AseqInputTiled = tf.tile(AseqInputSqueezed, multiples)
-			#
-			#		VseqUpdatedFloat = tf.dtypes.cast(VseqUpdated, tf.float32)	
-			#		VseqUpdatedFloatSqueeze = tf.squeeze(VseqUpdatedFloat, axis=0)	#batchSize must equal 1
-			#		VseqUpdatedFloatSqueeze = tf.expand_dims(VseqUpdatedFloatSqueeze, axis=0)
-			#		multiples = tf.constant([n_h[l2],1], tf.int32)
-			#		VseqUpdatedFloatTiled = tf.tile(VseqUpdatedFloatSqueeze, multiples)
-			#		
-			#		AseqMod = tf.subtract(tf.multiply(AseqInputSqueezed, 2.0), 1.0)
-			#		WseqDeltaSign = tf.multiply(AseqMod, VseqUpdatedFloatTiled)	
-			#		WseqDeltaCurrent = tf.multiply(WseqDeltaSign, hebbianLearningRate)
-			#		WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = WseqDeltaCurrent 
-			#		
-			#		#print("AseqInputTiled = ", AseqInputTiled)
-			#		#print("VseqUpdatedFloatTiled = ", VseqUpdatedFloatTiled)
-			#		#print("WseqDeltaSign = ", WseqDeltaSign)
+			recordActivitySequentialInput(s, VseqUpdated)
 		
 			if(performSummationOfSequentialInputs):
 				#these are all used for different methods of sequential input summation
@@ -421,25 +396,8 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 		A[generateParameterName(l, "A")] = A1
 		Z[generateParameterName(l, "Z")] = Z1
 
-		#if(useHebbianLearningRuleApply):
-		#	for s2 in range(numberOfSequentialInputs):
-		#		for l2 in range(0, l2Max+1):
-		#
-		#			#only apply weight updates to neurons that fired (all sequential inputs passed):
-		#			
-		#			Asqueezed = tf.squeeze(A[generateParameterName(l, "A")], axis=0)	#batchSize must equal 1
-		#			Asqueezed = tf.expand_dims(Asqueezed, axis=0)
-		#			multiples = tf.constant([n_h[l2],1], tf.int32)
-		#			ATiled = tf.tile(Asqueezed, multiples)
-		#			ATiledActiveBool = tf.math.greater(ATiled, 0.0)
-		#			ATiledActive = tf.dtypes.cast(ATiledActiveBool, tf.float32)
-		#			
-		#			WseqDeltaApplicable = tf.multiply(ATiledActive, WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s2, "WseqDelta")])
-		#			
-		#			WseqUpdated = tf.add(Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")], WseqDeltaApplicable)
-		#			WseqUpdated = tf.clip_by_value(WseqUpdated, minimumConnectionWeight, maximumConnectionWeight)
-		#			Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")] = WseqUpdated 
-
+		recordActivity()
+		
 	ZlastLayer = Z[generateParameterName(numberOfLayers, "Z")]
 		
 	if(useLearningRuleBackpropagation):
@@ -468,3 +426,50 @@ def activationFunction(Z):
 	#A = tf.nn.sigmoid(Z)
 	return A				
 
+def recordActivitySequentialInput(s, VseqUpdated):
+	pass
+	#if(useHebbianLearningRuleApply):
+	#	for l2 in range(0, l2Max+1):
+	#		#constrain learning (weight updates) to where VseqUpdated is True:
+	#		
+	#		AseqInput = A[generateParameterName(l2, "A")]
+	#		AseqInputSqueezed = tf.squeeze(AseqInput, axis=0)	#batchSize must equal 1
+	#		AseqInputSqueezed = tf.expand_dims(AseqInputSqueezed, axis=1)
+	#		multiples = tf.constant([1,n_h[l]], tf.int32)
+	#		AseqInputTiled = tf.tile(AseqInputSqueezed, multiples)
+	#
+	#		VseqUpdatedFloat = tf.dtypes.cast(VseqUpdated, tf.float32)	
+	#		VseqUpdatedFloatSqueeze = tf.squeeze(VseqUpdatedFloat, axis=0)	#batchSize must equal 1
+	#		VseqUpdatedFloatSqueeze = tf.expand_dims(VseqUpdatedFloatSqueeze, axis=0)
+	#		multiples = tf.constant([n_h[l2],1], tf.int32)
+	#		VseqUpdatedFloatTiled = tf.tile(VseqUpdatedFloatSqueeze, multiples)
+	#		
+	#		AseqMod = tf.subtract(tf.multiply(AseqInputSqueezed, 2.0), 1.0)
+	#		WseqDeltaSign = tf.multiply(AseqMod, VseqUpdatedFloatTiled)	
+	#		WseqDeltaCurrent = tf.multiply(WseqDeltaSign, hebbianLearningRate)
+	#		WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = WseqDeltaCurrent 
+	#		
+	#		#print("AseqInputTiled = ", AseqInputTiled)
+	#		#print("VseqUpdatedFloatTiled = ", VseqUpdatedFloatTiled)
+	#		#print("WseqDeltaSign = ", WseqDeltaSign)
+
+def recordActivity():
+	pass
+	#if(useHebbianLearningRuleApply):
+	#	for s2 in range(numberOfSequentialInputs):
+	#		for l2 in range(0, l2Max+1):
+	#
+	#			#only apply weight updates to neurons that fired (all sequential inputs passed):
+	#			
+	#			Asqueezed = tf.squeeze(A[generateParameterName(l, "A")], axis=0)	#batchSize must equal 1
+	#			Asqueezed = tf.expand_dims(Asqueezed, axis=0)
+	#			multiples = tf.constant([n_h[l2],1], tf.int32)
+	#			ATiled = tf.tile(Asqueezed, multiples)
+	#			ATiledActiveBool = tf.math.greater(ATiled, 0.0)
+	#			ATiledActive = tf.dtypes.cast(ATiledActiveBool, tf.float32)
+	#			
+	#			WseqDeltaApplicable = tf.multiply(ATiledActive, WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s2, "WseqDelta")])
+	#			
+	#			WseqUpdated = tf.add(Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")], WseqDeltaApplicable)
+	#			WseqUpdated = tf.clip_by_value(WseqUpdated, minimumConnectionWeight, maximumConnectionWeight)
+	#			Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")] = WseqUpdated 
