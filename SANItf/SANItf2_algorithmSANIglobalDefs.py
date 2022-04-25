@@ -27,39 +27,41 @@ import ANNtf2_globalDefs
 algorithmSANI = "sharedModules"
 #algorithmSANI = "repeatedModules"
 
-createSmallNetworkForDebug = True
-printStatus = True
 
+#parameter configuration (all algorithmSANI):
+printStatus = True
+useLearningRuleBackpropagation = True	#optional (untested)
+if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
+	useTcontiguity = False	#mandatory false (not supported)
+	useSkipLayers = True	#mandatory (implied true)
+	useMultipleSubinputsPerSequentialInput = True	#mandatory (implied true)
+else:
+	useTcontiguity = False	#optional (orig: True)
+	useSkipLayers = False	#optional (orig: True)
+	useMultipleSubinputsPerSequentialInput = True	#optional
+if(useMultipleSubinputsPerSequentialInput):
+	numberSubinputsPerSequentialInputDefault = 3
 useSequentialInputs = True
 if(useSequentialInputs):
 	numberOfSequentialInputs = 2	#2	#3	#1 - no sequential input requirement enforced
 else:
 	numberOfSequentialInputs = 1
 
-useTcontiguity = False
 
-useFullConnectivitySparsity = False	
-useLearningRuleBackpropagation = False
+
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
-	useLearningRuleBackpropagation = True	#optional (untested)
 	supportFullConnectivity = True	#mandatory - full connectivity between layers	
 	if(supportFullConnectivity):
-		useFullConnectivitySparsity = True	#sparsity is defined within fully connected weights
+		useFullConnectivitySparsity = True	#sparsity is defined within fully connected weights	via highly nonlinear (+/- exp) weight initialisation function
 		supportFeedback = False	#optional 
 	useHebbianLearningRule = False
 elif(algorithmSANI == "sharedModulesBinary"):
-	useTcontiguity = False	#optional
-	useLearningRuleBackpropagation = True	#optional (untested)
 	supportFullConnectivity = False	#unimplemented (could be added in future)
 	supportFeedback = False	#unimplemented
 elif(algorithmSANI == "sharedModules"):
-	useTcontiguity = False	#optional
-	useLearningRuleBackpropagation = True	#optional (untested)
 	supportFullConnectivity = False	#unimplemented (could be added in future)
 	supportFeedback = False	#unimplemented
 elif(algorithmSANI == "repeatedModules"):
-	useTcontiguity = False	#optional
-	useLearningRuleBackpropagation = True	#optional (untested)
 	supportFullConnectivity = False	#unimplemented (could be added in future)
 	supportFeedback = False	#unimplemented
 
@@ -81,11 +83,15 @@ elif(algorithmSANI == "repeatedModules"):
 #SANIsharedModules note: uses shifting input x feed, enabling identical input subsets (eg phrases/subreferencesets) irrespective of their sentence position to be sent to same modules/neurons
 
 
+allowMultipleSubinputsPerSequentialInput = False	#initialise
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
-	allowMultipleSubinputsPerSequentialInput = True	#implied variable (granted via full connectivity)
+	if(useMultipleSubinputsPerSequentialInput):
+		#allowMultipleSubinputsPerSequentialInput = True	#implied variable (granted via full connectivity)
+		pass
 	inputNumberFeaturesForCurrentWordOnly = True	#optional
 elif(algorithmSANI == "sharedModulesBinary"):
-	allowMultipleSubinputsPerSequentialInput = True	#required #originally set as False
+	if(useMultipleSubinputsPerSequentialInput):
+		allowMultipleSubinputsPerSequentialInput = True		#originally set as False
 	inputNumberFeaturesForCurrentWordOnly = True	#mandatory (only coded implementation)
 
 	resetSequentialInputs = True
@@ -96,7 +102,8 @@ elif(algorithmSANI == "sharedModulesBinary"):
 		
 	useSparseTensors = True	#mandatory
 elif(algorithmSANI == "sharedModules"):
-	allowMultipleSubinputsPerSequentialInput = True
+	if(useMultipleSubinputsPerSequentialInput):
+		allowMultipleSubinputsPerSequentialInput = True
 	
 	allowMultipleContributingSubinputsPerSequentialInput = False	#initialise
 	if(allowMultipleSubinputsPerSequentialInput):
@@ -128,11 +135,12 @@ elif(algorithmSANI == "sharedModules"):
 	else:
 		useSparseTensors = True	#mandatory	#sparse tensors are used
 elif(algorithmSANI == "repeatedModules"): 	
-	allowMultipleSubinputsPerSequentialInput = False
+	if(useMultipleSubinputsPerSequentialInput):
+		allowMultipleSubinputsPerSequentialInput = True
 	useSparseTensors = True	#mandatory
-	inputNumberFeaturesForCurrentWordOnly = False	#NA (not used)
+	inputNumberFeaturesForCurrentWordOnly = True
 
-if(allowMultipleSubinputsPerSequentialInput):
+if(useMultipleSubinputsPerSequentialInput):
 	layerSizeConvergence = False #OLD: True	#CHECKTHIS
 else:
 	layerSizeConvergence = False
@@ -140,13 +148,18 @@ else:
 #set parameters oneSequentialInputHasOnlyOneSubinput:
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	oneSequentialInputHasOnlyOneSubinput = False	
+	#maxNumberSubinputsPerSequentialInput = -1	#NA	#will depend on number neurons per layer
 elif(algorithmSANI == "sharedModulesBinary"):		
-	expectNetworkConvergence = False
-	if(expectNetworkConvergence):
+	if(layerSizeConvergence):
 		#if(numberOfSequentialInputs == 2):
 		oneSequentialInputHasOnlyOneSubinput = True	#conditional probability determination of events
 	else:
 		oneSequentialInputHasOnlyOneSubinput = False
+	if(allowMultipleSubinputsPerSequentialInput):	
+		if(layerSizeConvergence):
+			maxNumberSubinputsPerSequentialInput = 50	#~approx equal number of prev layer neurons/2 (FUTURE: make dynamic based on layer index)	#number of prior/future events in which to calculate a conditional probability	#if oneSequentialInputHasOnlyOneSubinput: can be higher because number of permutations of subinputs is lower
+		else:
+			maxNumberSubinputsPerSequentialInput = numberSubinputsPerSequentialInputDefault	#sparsity	#OLD: 1
 elif(algorithmSANI == "sharedModules"):
 	if(useSparseTensors):	#FUTURE: upgrade code to remove this requirement
 		if(allowMultipleSubinputsPerSequentialInput):
@@ -156,8 +169,18 @@ elif(algorithmSANI == "sharedModules"):
 			oneSequentialInputHasOnlyOneSubinput = False
 	else:
 		oneSequentialInputHasOnlyOneSubinput = False
+	if(allowMultipleSubinputsPerSequentialInput):
+		if(useSparseTensors):
+			if(oneSequentialInputHasOnlyOneSubinput):
+				maxNumberSubinputsPerSequentialInput = 50	#~approx equal number of prev layer neurons/2	#number of prior/future events in which to calculate a conditional probability	#if oneSequentialInputHasOnlyOneSubinput: can be higher because number of permutations of subinputs is lower
+			else:
+				maxNumberSubinputsPerSequentialInput = numberSubinputsPerSequentialInputDefault	#sparsity
 elif(algorithmSANI == "repeatedModules"):
-	oneSequentialInputHasOnlyOneSubinput = False
+	oneSequentialInputHasOnlyOneSubinput = False	#mandatory (repeatedModules does not currently support oneSequentialInputHasOnlyOneSubinput as numberSubinputsPerSequentialInput is not always calculated via calculateNumberSubinputsPerSequentialInputSparseTensors function)
+	if(allowMultipleSubinputsPerSequentialInput):
+		if(useSparseTensors):
+			numberSubinputsPerSequentialInput = numberSubinputsPerSequentialInputDefault #sparsity
+			maxNumberSubinputsPerSequentialInput = numberSubinputsPerSequentialInput	#required by defineNeuralNetworkParametersSANI only
 if(oneSequentialInputHasOnlyOneSubinput):
 	firstSequentialInputHasOnlyOneSubinput = True #use combination of allowMultipleSubinputsPerSequentialInput for different sequential inputs;  #1[#2] sequential input should allow multiple subinputs, #2[#1] sequential input should allow single subinput
 	if(firstSequentialInputHasOnlyOneSubinput):
@@ -209,6 +232,7 @@ else:
 	numberOfWordsInConvolutionalWindowSeen = 10
 	
 #set parameters performSummationOfSubInputsWeighted/useLastSequentialInputOnly/numberOfWordsInConvolutionalWindowSeen:
+performSummationOfSubInputsWeighted = False 	#initialise
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	performThresholdOfSubInputsNonlinear = True	#default: apply non-linear activation function to sequential input (use Aseq)
 	if(not performThresholdOfSubInputsNonlinear):
@@ -290,6 +314,12 @@ elif(algorithmSANI == "sharedModules"):
 	else:
 		performSummationOfSubInputsWeighted = False
 
+		#required irrespective of performSummationOfSubInputs since performSummationOfSequentialInputs code tests for performSummationOfSubInputsNonlinear instead of performThresholdOfSubInputsNonlinear:
+		if(performThresholdOfSubInputsNonlinear):
+			performSummationOfSubInputsNonlinear = True	
+		else:
+			performSummationOfSubInputsNonlinear = False
+				
 		performSummationOfSequentialInputs = True
 		if(performSummationOfSequentialInputs):
 			performSummationOfSequentialInputsVerify = True	#verify that all (last) sequential inputs are activated	#CHECKTHIS
@@ -311,7 +341,7 @@ elif(algorithmSANI == "repeatedModules"):
 	if(allowMultipleSubinputsPerSequentialInput):
 		#[multiple subinputs per sequential input] #each sequential input can detect a pattern of activation from the previous layer
 
-		performIndependentSubInputValidation = True
+		performIndependentSubInputValidation = True	#optional?
 		performSummationOfSubInputs = True	#else take sub input with max input signal*weight
 		if(performSummationOfSubInputs):
 			performSummationOfSubInputsWeighted = True	#determines if backprop is required to update weight matrix associated with inputs to a sequential input?
@@ -345,8 +375,6 @@ elif(algorithmSANI == "repeatedModules"):
 		else:
 			useLastSequentialInputOnly = True	#implied variable (not used)
 		
-		numberSubinputsPerSequentialInput = 3 #sparsity
-
 		if(enforceTcontiguityConstraints):
 			sequentialityMode = "default"
 			#sequentialityMode = "temporalCrossoverAllowed"
@@ -400,31 +428,22 @@ if(not useLearningRuleBackpropagation):
 		recordNetworkWeights = False	#not available
 
 
-if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
-	supportSkipLayers = True
-	maxNumberSubinputsPerSequentialInput = -1	#NA
-elif(algorithmSANI == "sharedModulesBinary"):
-	if(allowMultipleSubinputsPerSequentialInput):	
-		if(expectNetworkConvergence):
-			maxNumberSubinputsPerSequentialInput = 50	#~approx equal number of prev layer neurons/2 (FUTURE: make dynamic based on layer index)	#number of prior/future events in which to calculate a conditional probability
-		else:
-			maxNumberSubinputsPerSequentialInput = 1	#sparsity
-	supportSkipLayers = True
-elif(algorithmSANI == "sharedModules"):
-	if(allowMultipleSubinputsPerSequentialInput):
-		if(useSparseTensors):
-			supportSkipLayers = True
-			if(oneSequentialInputHasOnlyOneSubinput):
-				maxNumberSubinputsPerSequentialInput = 50	#~approx equal number of prev layer neurons/2	#number of prior/future events in which to calculate a conditional probability
-			else:
-				maxNumberSubinputsPerSequentialInput = 3	#sparsity
-		else:
-			supportSkipLayers = True
-	else:
+supportSkipLayers = False	#initialise
+if(useSkipLayers):
+	if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 		supportSkipLayers = True
-elif(algorithmSANI == "repeatedModules"):
-	supportSkipLayers = True
-	maxNumberSubinputsPerSequentialInput = -1	#NA
+	elif(algorithmSANI == "sharedModulesBinary"):
+		supportSkipLayers = True
+	elif(algorithmSANI == "sharedModules"):
+		if(allowMultipleSubinputsPerSequentialInput):
+			if(useSparseTensors):
+				supportSkipLayers = True
+			else:
+				supportSkipLayers = True
+		else:
+			supportSkipLayers = True
+	elif(algorithmSANI == "repeatedModules"):
+		supportSkipLayers = True
 
 	
 #if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):

@@ -196,7 +196,7 @@ def neuralNetworkPropagationSANI(x):
 	match_indices = tf.where(tf.equal(paddingTagIndex, x), x=tf.range(tf.shape(x)[1])*tf.ones_like(x), y=(tf.shape(x)[1])*tf.ones_like(x))
 	numberOfFeaturesActiveBatch = tf.math.argmin(match_indices, axis=1).numpy()
 	numberOfWordsInSentenceBatch = (numberOfFeaturesActiveBatch/numberOfFeaturesPerWord).astype(np.int32) 
-	print(numberOfWordsInSentenceBatch)
+	#print(numberOfWordsInSentenceBatch = ", numberOfWordsInSentenceBatch)
 	
 	for l in range(1, numberOfLayers+1):
 		Z[generateParameterName(l, "Z")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), dtype=tf.bool), dtype=tf.bool)	#A=Z for binary activations
@@ -242,7 +242,8 @@ def neuralNetworkPropagationSANI(x):
 		if(enforceTcontiguityConstraints):
 			TMinPrevLayer, TMaxPrevLayer = TcontiguityInitialiseTemporaryVars(w)
 			
-		printAverage(AprevLayer, "AprevLayer", 1)
+		#if(printStatus):
+			#printAverage(AprevLayer, "AprevLayer", 1)
 
 		for l in range(1, numberOfLayers+1):	#start algorithm at n_h[1]; ie first hidden layer
 
@@ -281,8 +282,11 @@ def neuralNetworkPropagationSANI(x):
 						CseqCrossLayer = tf.add(Cseq[generateParameterNameSeq(l, s, "Cseq")], CseqCrossLayerBase)
 						AseqInput = tf.gather(AprevLayerAll, CseqCrossLayer, axis=1)
 					else:
-						#printAverage(AprevLayer, "AprevLayer", 3)
+						#if(printStatus):
+							#printAverage(AprevLayer, "AprevLayer", 3)
 						#printAverage(TprevLayer, "TprevLayer", 3)
+						#print("AprevLayer = ", AprevLayer.shape)
+						#print("Cseq = ", Cseq[generateParameterNameSeq(l, s, "Cseq")].shape)
 						AseqInput = tf.gather(AprevLayer, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
 				if(enforceTcontiguityConstraints):
 					TMinSeqInput, TMaxSeqInput = TcontiguitySequentialInputInitialiseTemporaryVars(l, s, TMinPrevLayer, TMaxPrevLayer, TMinPrevLayerAll, TMaxPrevLayerAll)
@@ -322,11 +326,16 @@ def neuralNetworkPropagationSANI(x):
 					#printAverage(TMaxSeqInputThresholded, "TMaxSeqInputThresholded", 3)
 
 				#take any active and Tthreshold valid sub input:
-				ZseqHypothetical = tf.math.reduce_any(AseqInput, axis=1)
-			
+				if(allowMultipleSubinputsPerSequentialInput):
+					ZseqHypothetical = tf.math.reduce_any(AseqInput, axis=1)
+				else:
+					ZseqHypothetical = AseqInput
+				
 				#printAverage(ZseqHypothetical, "ZseqHypothetical", 3)
 				#printAverage(VseqBool, "VseqBool", 3)			
 				#printAverage(ZseqHypothetical, "ZseqHypothetical", 3)	
+				#print("VseqBool = ", VseqBool.shape)
+				#print("ZseqHypothetical = ", ZseqHypothetical.shape)
 				
 				#apply sequential validation matrix
 				ZseqHypothetical = tf.math.logical_and(VseqBool, ZseqHypothetical)

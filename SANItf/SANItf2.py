@@ -105,8 +105,8 @@ if(algorithm == "SANI"):
 			exit()
 	elif(SANItf2_algorithm.algorithmSANI == "repeatedModules"):
 		if(not SANItf2_algorithm.SANIsharedModules):	#only implementation
-			#dataset = "POStagSentence"	#optional: POStagSequence or POStagSequence
-			dataset = "POStagSequence"
+			dataset = "POStagSentence"	#optional: POStagSequence or POStagSequence
+			#dataset = "POStagSequence"
 		else:
 			print("SANItf2 error: (SANItf2_algorithm.algorithmSANI == repeatedModules) && (SANItf2_algorithm.SANIsharedModules)")	
 			exit()		
@@ -128,9 +128,9 @@ if(algorithm == "SANI"):
 			generatePOSunambiguousInput = False
 			onlyAddPOSunambiguousInputToTrain = False
 	elif(dataset == "POStagSequence"):
-		#pass
 		addOnlyPriorUnidirectionalPOSinputToTrain = True
 		generatePOSunambiguousOutput = False	#assume batchY is already pos unambiguous
+		trainDataIncludesSentenceOutOfBoundsIndex = True	#Ydataset1PartSmall0000.dat:52 classes, Xdataset1PartSmall0000.dat:53 features per word (train data includes POS_INDEX_OUT_OF_SENTENCE_BOUNDS [53rd index] if !GIA_PREPROCESSOR_POS_TAGGER_DATABASE_DO_NOT_TRAIN_POS_INDEX_OUT_OF_SENTENCE_BOUNDS)
 					
 			
 if(debugUseSmallPOStagSequenceDataset):
@@ -248,7 +248,6 @@ def calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossE
 	acc = 0	#only valid for softmax class targets 
 	pred = neuralNetworkPropagation(x, networkIndex)
 	target = y 
-	target = tf.dtypes.cast(target, tf.float32)
 	#print("pred = ", pred) 
 	#print("target = ", target) 
 		
@@ -259,9 +258,11 @@ def calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossE
 		#if(onlyAddPOSunambiguousInputToTrain):
 		#	singleTarget = True
 		#print("oneHotEncoded")
+		target = tf.dtypes.cast(target, tf.float32)
 	elif(dataset == "POStagSequence"):
 		oneHotEncoded = False
 		singleTarget = True
+		target = tf.dtypes.cast(target, tf.int32)
 		
 	loss = calculateLossCrossEntropy(pred, target, datasetNumClasses, costCrossEntropyWithLogits, oneHotEncoded=oneHotEncoded)
 	
@@ -300,6 +301,8 @@ def loadDataset(fileIndex):
 	numberOfLayers = 0
 	if(dataset == "POStagSequence"):
 		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType1(datasetType1FileNameX, datasetType1FileNameY, addOnlyPriorUnidirectionalPOSinputToTrain)
+		if(trainDataIncludesSentenceOutOfBoundsIndex):
+			datasetNumClasses = datasetNumClasses + 1
 	elif(dataset == "POStagSentence"):
 		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_xTemp, train_yTemp, test_xTemp, test_yTemp = ANNtf2_loadDataset.loadDatasetType3(datasetType3FileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths)
 	elif(dataset == "SmallDataset"):

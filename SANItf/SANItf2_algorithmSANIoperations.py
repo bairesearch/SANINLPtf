@@ -38,43 +38,38 @@ def generatePrediction(ZlastLayer, Whead):
 def defineTrainingParametersSANI(dataset, trainMultipleFiles):
 	
 	#Training parameters
-	if((algorithmSANI == "sharedModulesBinary") and (ANNtf2_globalDefs.testHarness)):	
+	if((ANNtf2_globalDefs.testHarness) and (algorithmSANI == "sharedModulesBinary")):	
 		learningRate = 0.001
 		trainingSteps = 1
 		numEpochs = 1
 	else:
-		if(trainMultipleFiles):
-			learningRate = 0.001
-			if(dataset == "POStagSentence"):
-				trainingSteps = 10000
-			elif(dataset == "POStagSequence"):
-				trainingSteps = 10000
-			elif(dataset == "SmallDataset"):
-				trainingSteps = 1000
-			numEpochs = 10
-		else:
-			learningRate = 0.001
-			if(dataset == "POStagSentence"):
-				trainingSteps = 10000
-			elif(dataset == "POStagSequence"):
-				trainingSteps = 10000
-			elif(dataset == "SmallDataset"):
-				trainingSteps = 1000
-			numEpochs = 1
-
-	if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
-		batchSize = 1	#4	#32	#128	#256	#1 is required for hebbian learning
-		displayStep = 1	
-	elif(algorithmSANI == "sharedModulesBinary"):
-		batchSize = 1	#4	#32	#128	#256
-		displayStep = 1	
-	else:
-		if(allowMultipleSubinputsPerSequentialInput):
-			batchSize = 100
-			displayStep = 100
-		else:
-			batchSize = 10	#50
-			displayStep = 100	
+		learningRate = 0.001
+		if(dataset == "POStagSentence"):
+			trainingSteps = 10000
+		elif(dataset == "POStagSequence"):
+			trainingSteps = 10000
+		elif(dataset == "SmallDataset"):
+			trainingSteps = 1000
+		numEpochs = 10
+		#if(trainMultipleFiles):
+		#else:
+		
+	batchSize = 100
+	displayStep = 100
+			
+	#if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
+	#	batchSize = 1	#4	#32	#128	#256	#1 is required for hebbian learning
+	#	displayStep = 1	
+	#elif(algorithmSANI == "sharedModulesBinary"):
+	#	batchSize = 1	#4	#32	#128	#256
+	#	displayStep = 1	
+	#else:
+	#	if(allowMultipleSubinputsPerSequentialInput):
+	#		batchSize = 100
+	#		displayStep = 100
+	#	else:
+	#		batchSize = 10	#50
+	#		displayStep = 100	
 
 	return learningRate, trainingSteps, batchSize, displayStep, numEpochs
 			
@@ -95,6 +90,7 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 
 	if(dataset == "POStagSentence"):
 		n_x = inputLength #datasetNumFeatures
+		#print("n_x = ", n_x)
 		if(useLearningRuleBackpropagation):
 			n_y = numberOfFeaturesPerWord  
 		else:
@@ -142,10 +138,14 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 			#n_h_1 = int(firstLayerSize*3)
 			#n_h_2 = int(firstLayerSize/2)
 		else:
-			n_h_1 = int(firstLayerSize*10)
-			n_h_2 = int(firstLayerSize*10)
-			n_h_3 = int(firstLayerSize*10)
-			n_h_4 = int(firstLayerSize*10)
+			n_h_1 = int(firstLayerSize*1)
+			n_h_2 = int(firstLayerSize*2)
+			n_h_3 = int(firstLayerSize*3)
+			n_h_4 = int(firstLayerSize*4)
+			#n_h_1 = int(firstLayerSize*10)
+			#n_h_2 = int(firstLayerSize*10)
+			#n_h_3 = int(firstLayerSize*10)
+			#n_h_4 = int(firstLayerSize*10)
 			
 		if(useLearningRuleBackpropagation):
 			n_h_5 = n_h_4
@@ -194,7 +194,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 						for s in range(numberOfSequentialInputs):
 							#print("\t\ts = " + str(s))
 							if(useFullConnectivitySparsity):
-								sparsityLevel = getSparsityLevel(l1,l2,n_h)
+								sparsityLevel = getSparsityLevelFullConnectivity(l1,l2,n_h)
 								WseqNP = np.random.exponential(scale=sparsityLevel, size=(n_h[l2], n_h[l1]))	#exp
 								WseqNPswitch = np.random.randint(2, size=(n_h[l2], n_h[l1]))	#0 or 1
 								WseqNPswitch = np.subtract(np.multiply(WseqNPswitch, 2), 1)	#-1 or 1
@@ -234,7 +234,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 					if(useSparseTensors):
 						if(allowMultipleSubinputsPerSequentialInput):
 
-							numberSubinputsPerSequentialInput = calculateNumberSubinputsPerSequentialInput(s)
+							numberSubinputsPerSequentialInput = calculateNumberSubinputsPerSequentialInputSparseTensors(s)
 
 							if(supportSkipLayers):
 								#neuronIndex = np.random.randint(0, n_h_cumulativeNP[l]+1, n_h[l])
@@ -244,7 +244,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 									CseqLayerNPmax = numberOfLayers
 								else:
 									CseqLayerNPmax = l-1
-								CseqLayerNP = np.random.randint(0, CseqLayerNPmax+1, (numberSubinputsPerSequentialInput, n_h[l]))	#this can be modified to make local/distant connections more probable
+								CseqLayerNP = np.random.randint(0, CseqLayerNPmax+1, (numberSubinputsPerSequentialInput, n_h[l]))	#this can be modified to make local/distant connections more probable	#note +1 is required because np.random.randint generates int between min and max-1
 								for i in range(numberSubinputsPerSequentialInput):
 									for j in range(n_h[l]):
 										l2 = CseqLayerNP[i, j]
@@ -252,7 +252,8 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 								Cseq[generateParameterNameSeq(l, s, "Cseq")] = tf.Variable(CseqNP, dtype=tf.int32)
 								CseqLayer[generateParameterNameSeq(l, s, "CseqLayer")] = tf.Variable(CseqLayerNP, dtype=tf.int32)
 							else:
-								CseqNP = np.random.randint(0, n_h[l-1]+1, (numberSubinputsPerSequentialInput, n_h[l]))	#note +1 is required because np.random.randint generates int between min and max-1
+								#print("n_h[l-1] = ", n_h[l-1])
+								CseqNP = np.random.randint(0, n_h[l-1], (numberSubinputsPerSequentialInput, n_h[l]))
 								Cseq[generateParameterNameSeq(l, s, "Cseq")] = tf.Variable(CseqNP, dtype=tf.int32)
 
 							if(performSummationOfSubInputsWeighted):
@@ -273,7 +274,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 								Cseq[generateParameterNameSeq(l, s, "Cseq")] = tf.Variable(CseqNP, dtype=tf.int32)
 								CseqLayer[generateParameterNameSeq(l, s, "CseqLayer")] = tf.Variable(CseqLayerNP, dtype=tf.int32)
 							else:
-								CseqNP = np.random.randint(0, n_h[l-1]+1, n_h[l])	#note +1 is required because np.random.randint generates int between min and max-1
+								CseqNP = np.random.randint(0, n_h[l-1], n_h[l])
 								Cseq[generateParameterNameSeq(l, s, "Cseq")] = tf.Variable(CseqNP, dtype=tf.int32)
 					else:
 						if(performSummationOfSubInputsWeighted):
@@ -311,7 +312,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 				#     |    /
 				# L2: x  x
 
-				numberSubinputsPerSequentialInput = calculateNumberSubinputsPerSequentialInput(0)
+				numberSubinputsPerSequentialInput = calculateNumberSubinputsPerSequentialInputSparseTensors(0)
 
 				CseqNPl1c0 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
 				CseqNPl1c1 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
@@ -349,7 +350,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 			print("error: (ANNtf2_globalDefs.testHarness)) requires algorithmSANI=sharedModulesBinary")
 			exit()	
 
-def getSparsityLevel(l, l2, n_h):
+def getSparsityLevelFullConnectivity(l, l2, n_h):
 	if(useFullConnectivitySparsity):
 		calibrationValue = 1.0 #exponential scale calibration factor - requires calibration
 		averageNumberNeuronsActivePerLayer = 1.0
@@ -364,7 +365,7 @@ def getSparsityLevel(l, l2, n_h):
 	return sparsityLevel
 
 
-def calculateNumberSubinputsPerSequentialInput(s):
+def calculateNumberSubinputsPerSequentialInputSparseTensors(s):
 
 	if(allowMultipleSubinputsPerSequentialInput):
 		if(oneSequentialInputHasOnlyOneSubinput):
@@ -377,7 +378,7 @@ def calculateNumberSubinputsPerSequentialInput(s):
 		else:
 			numberSubinputsPerSequentialInput = maxNumberSubinputsPerSequentialInput
 	else:
-		#calculateNumberSubinputsPerSequentialInput function should not have been called
+		#calculateNumberSubinputsPerSequentialInputSparseTensors function should not have been called
 		numberSubinputsPerSequentialInput = 1	
 		
 	return numberSubinputsPerSequentialInput

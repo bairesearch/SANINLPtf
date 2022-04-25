@@ -432,15 +432,8 @@ def neuralNetworkPropagationSANI(x):
 									
 				#apply weights to input of neuron sequential input
 				if(performSummationOfSequentialInputs):
-					if(performSummationOfSequentialInputsWeighted):
-						multiples = tf.constant([batchSize,1], tf.int32)
-						Wtiled = tf.tile(tf.reshape(W[generateParameterName(l, "W")][s], [1, n_h[l]]), multiples)
-					
+					if(performSummationOfSequentialInputsWeighted):	
 						#these are all used for different methods of sequential input summation
-						if(performSummationOfSubInputsNonlinear):
-							AseqSum = tf.add(AseqSum, AseqUpdated)
-						else:
-							ZseqSum = tf.add(ZseqSum, ZseqUpdated)
 						if(performSummationOfSequentialInputsWeighted):
 							multiples = tf.constant([batchSize,1], tf.int32)
 							Wtiled = tf.tile(tf.reshape(W[generateParameterName(l, "W")][s], [1, n_h[l]]), multiples)
@@ -450,6 +443,11 @@ def neuralNetworkPropagationSANI(x):
 							else:
 								ZseqWeighted = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], Wtiled)
 								ZseqWeightedSum = tf.math.add(ZseqWeightedSum, ZseqWeighted)
+						else:
+							if(performSummationOfSubInputsNonlinear):
+								AseqSum = tf.add(AseqSum, AseqUpdated)
+							else:
+								ZseqSum = tf.add(ZseqSum, ZseqUpdated)						
 
 				if(s == numberOfSequentialInputs-1):
 					ZseqLast = Zseq[generateParameterNameSeq(l, s, "Zseq")]

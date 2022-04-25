@@ -199,6 +199,7 @@ def neuralNetworkPropagationSANI(x):
 				
 			
 	AprevLayer = x
+	#print("x = ", x)
 	
 	for l in range(1, numberOfLayers+1):
 		
@@ -250,20 +251,20 @@ def neuralNetworkPropagationSANI(x):
 			else:
 				if(performIndependentSubInputValidation):
 					multiples = tf.constant([1, numberSubinputsPerSequentialInput, 1], tf.int32) 
-					#printShape(tMinSeqPrev, "tMinSeqPrev")
 					VseqPrevTest = tf.tile(tf.reshape(VseqPrev, [batchSize, 1, n_h[l]]), multiples)
 				else:
 					VseqPrevTest = VseqPrev
-					
-			#print("tsLxSx2" + str(tf.timestamp(name="tsLxSx2")))
+	
 			if(enforceTcontiguityConstraints):
-				VseqUpdated, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest = TcontiguitySequentialInputInitialiseTemporaryVars(l, s, VseqPrevTest,  tMinLayerAll, tMidLayerAll, tMaxLayerAll, tMin, tMid, tMax, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev)
-			else:
-				if(s > 0):
-					VseqUpdated = VseqPrevTest	#if previous sequentiality check fails, then all future sequentiality checks must fail
+				tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest = TcontiguitySequentialInputInitialiseTemporaryVars(l, s, tMinLayerAll, tMidLayerAll, tMaxLayerAll, tMin, tMid, tMax, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev)
+				
+			#print("tsLxSx2" + str(tf.timestamp(name="tsLxSx2")))
 			if(s > 0):
-				Vseq = VseqUpdated
-					
+				if(enforceTcontiguityConstraints):
+					Vseq = TcontiguitySequentialInputInitialiseValidationMatrix(l, s, VseqPrevTest, tMinSeqTest, tMidSeqTest, tMaxSeqTest)
+				else:
+					Vseq = VseqPrevTest	#if previous sequentiality check fails, then all future sequentiality checks must fail
+				
 			VseqInt = tf.dtypes.cast(Vseq, tf.int32)
 			VseqFloat = tf.dtypes.cast(VseqInt, tf.float32)
 			
@@ -274,15 +275,13 @@ def neuralNetworkPropagationSANI(x):
 				AseqInput = tf.gather(AprevLayerAll, CseqCrossLayer, axis=1)
 			else:
 				AseqInput = tf.gather(AprevLayer, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
-				
-			
+					
 			#apply sequential validation matrix
 			if(allowMultipleSubinputsPerSequentialInput):
 				if(performIndependentSubInputValidation):
 					AseqInput = tf.multiply(VseqFloat, AseqInput)
 				else:
-					#checkthis:
-					multiples = tf.constant([1,numberSubinputsPerSequentialInput,1], tf.int32)
+					multiples = tf.constant([1, numberSubinputsPerSequentialInput, 1], tf.int32)
 					VseqFloatTiled = tf.tile(tf.reshape(VseqFloat, [batchSize, 1, n_h[l]]), multiples)
 					AseqInput = tf.multiply(VseqFloatTiled, AseqInput)
 			else:
@@ -291,7 +290,8 @@ def neuralNetworkPropagationSANI(x):
 			if(performSummationOfSequentialInputsWeighted):
 				multiples = tf.constant([batchSize,1], tf.int32)
 				Wtiled = tf.tile(tf.reshape(W[generateParameterName(l, "W")][s], [1, n_h[l]]), multiples)
-											
+					
+			ZseqIndex = None	#initialise						
 			if(allowMultipleSubinputsPerSequentialInput):
 				if(performSummationOfSubInputsWeighted):
 					multiplesSeq = tf.constant([batchSize,1,1], tf.int32)
@@ -307,7 +307,7 @@ def neuralNetworkPropagationSANI(x):
 					Zseq = tf.math.reduce_max(AseqInputWeighted, axis=1)
 					ZseqIndex = tf.math.argmax(AseqInputWeighted, axis=1)
 					
-				Aseq, _ = activationFunction(Zseq)
+				Aseq, ZseqPassThresold = sequentialActivationFunction(Zseq)
 				
 				if(performSummationOfSequentialInputs):
 					#these are all used for different methods of sequential input summation
@@ -324,18 +324,31 @@ def neuralNetworkPropagationSANI(x):
 							ZseqWeighted = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], Wtiled)
 							ZseqWeightedSum = tf.math.add(ZseqWeightedSum, ZseqWeighted)
 			else:
+				Zseq = AseqInput	
+				Aseq, ZseqPassThresold = sequentialActivationFunction(Zseq)
 				if(performSummationOfSequentialInputsWeighted):
 					AseqInputWeighted = tf.multiply(AseqInput, Wtiled)
 					AseqInputWeightedSum = tf.add(AseqInputWeightedSum, AseqInputWeighted)
-				else:
-					#CHECKTHIS;
-					Zseq = AseqInput	
-					Aseq, _ = activationFunction(Zseq)
 			
+
 			if(enforceTcontiguityConstraints):
-				VseqPrev, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev = TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest)
+				tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev = TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest, ZseqIndex)		
+	
+			if(performIndependentSubInputValidation):
+				if(performSummationOfSubInputs):
+					VseqReduced = tf.reduce_any(Vseq, axis=1)
+				else:
+					#take subinput with max input signal (AseqInput)
+					VseqReduced = Vseq[:, ZseqIndex, :]	
 			else:
-				VseqPrev = Vseq
+				VseqReduced = Vseq
+	
+			#calculate updated Vseq
+			VseqUpdated = tf.math.logical_or(VseqReduced, ZseqPassThresold)	#OLD: VseqUpdated = Vseq
+			VseqPrev = VseqUpdated
+			
+			if(s == numberOfSequentialInputs-1):
+				VseqLast = VseqPrev
 			
 		#calculate A (output) matrix of current layer		
 		if(allowMultipleSubinputsPerSequentialInput):
@@ -343,20 +356,20 @@ def neuralNetworkPropagationSANI(x):
 				if(performSummationOfSequentialInputs):
 					if(performSummationOfSequentialInputsWeighted):
 						if(performSummationOfSubInputsNonlinear):
-							Z1 = AseqWeightedSum			
+							Z = AseqWeightedSum			
 						else:
-							Z1 = ZseqWeightedSum			
+							Z = ZseqWeightedSum			
 					else:
 						if(performSummationOfSubInputsNonlinear):
-							Z1 = AseqSum			
+							Z = AseqSum			
 						else:
-							Z1 = ZseqSum
+							Z = ZseqSum
 					if(sequentialInputCombinationModeSummationAveraged):
-						Z1 = Z1/numberOfSequentialInputs
+						Z = Z/numberOfSequentialInputs
 					if(performSummationOfSequentialInputsNonlinear):
-						A1 = activationFunction(Z1)
+						A = activationFunction(Z)
 					else:
-						A1 = Z1
+						A = Z
 				if(performSummationOfSequentialInputsVerify):
 					Z = tf.multiply(Z, tf.dtypes.cast(VseqLast, tf.float32))
 					A = tf.multiply(A, tf.dtypes.cast(VseqLast, tf.float32))
@@ -378,7 +391,6 @@ def neuralNetworkPropagationSANI(x):
 				#CHECKTHIS;
 				ZseqLast = Zseq
 				AseqLast = Aseq
-				#VseqLastFloat = VseqFloat
 				Z = ZseqLast
 				A = AseqLast
 				
@@ -436,9 +448,11 @@ def TcontiguityLayerInitialiseTemporaryVars(l):
 				
 	return tMin, tMid, tMax, tMinLayerAll, tMidLayerAll, tMaxLayerAll
 
-def TcontiguitySequentialInputInitialiseTemporaryVars(l, s, VseqPrevTest, tMinLayerAll, tMidLayerAll, tMaxLayerAll, tMin, tMid, tMax, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev):
 
-	VseqUpdated, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest = (None, None, None, None, None, None, None)
+
+def TcontiguitySequentialInputInitialiseTemporaryVars(l, s, tMinLayerAll, tMidLayerAll, tMaxLayerAll, tMin, tMid, tMax, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev):
+
+	tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest = (None, None, None, None, None, None, None)
 
 	#calculate tMin/Mid/Max for sequential input
 	if(supportFullConnectivity):
@@ -476,29 +490,42 @@ def TcontiguitySequentialInputInitialiseTemporaryVars(l, s, VseqPrevTest, tMinLa
 				tMidSeqPrevTest = tf.tile(tf.reshape(tMidSeqPrev, [batchSize, 1, n_h[l]]), multiples)
 				tMaxSeqPrevTest = tf.tile(tf.reshape(tMaxSeqPrev, [batchSize, 1, n_h[l]]), multiples)
 		else:
-			VseqPrevTest = VseqPrev
 			if(enforceTcontiguityConstraints):
 				tMinSeqPrevTest = tMinSeqPrev
 				tMidSeqPrevTest = tMidSeqPrev
 				tMaxSeqPrevTest = tMaxSeqPrev
 
+
+	return tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest
+
+
+
+def TcontiguitySequentialInputInitialiseValidationMatrix(l, s, VseqPrevTest, tMinSeqTest, tMidSeqTest, tMaxSeqTest):
+
+	VseqTconstrained = None
+	
+	#calculate validation matrix based upon sequentiality requirements
+	if(s > 0):
 		if(sequentialityMode == "default"):
 			#the first sub input of sequential input #2 must fire after the last subinput of sequential input #1
-			VseqUpdated = tf.math.greater(tMinSeqTest, tMaxSeqPrevTest)
+			VseqTconstrained = tf.math.greater(tMinSeqTest, tMaxSeqPrevTest)
 		elif(sequentialityMode == "temporalCrossoverAllowed"):
 			#the last sub input of sequential input #1 can fire after the first subinput of sequential input #2
-			VseqUpdated = tf.math.greater(tMaxSeqTest, tMaxSeqPrevTest)
+			VseqTconstrained = tf.math.greater(tMaxSeqTest, tMaxSeqPrevTest)
 		elif(sequentialityMode == "contiguousInputEnforced"):
 			#the last sub input of sequential input #1 must fire immediately before the first subinput of sequentialInput #2
-			VseqUpdated = tf.math.equal(tMinSeqTest, tMaxSeqPrevTest+1)	#TODO: verify that the +1 here gets properly broadcasted	
-		VseqUpdated = tf.math.logical_and(VseqUpdated, VseqPrevTest)	#if previous sequentiality check fails, then all future sequentiality checks must fail
+			VseqTconstrained = tf.math.equal(tMinSeqTest, tMaxSeqPrevTest+1)	#TODO: verify that the +1 here gets properly broadcasted	
+		VseqTconstrained = tf.math.logical_and(VseqTconstrained, VseqPrevTest)	#if previous sequentiality check fails, then all future sequentiality checks must fail
+	else:
+		print("TcontiguitySequentialInputInitialiseTemporaryVars2 error; requires s > 0")
+		exit()
+		
+	return VseqTconstrained
 
-	return VseqUpdated, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest
 
+def TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest, ZseqIndex):
 
-def TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest):
-
-	VseqPrev, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev = (None, None, None, None)
+	tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev = (None, None, None)
 	
 	#generate reduced versions of tMin/Mid/MaxSeq with only sequentially valid elements
 	if(performIndependentSubInputValidation):
@@ -519,13 +546,11 @@ def TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMax
 			tMinSeqValidatedReduced = tf.dtypes.cast(tMinSeqValidatedReduced, tf.int32)
 			tMidSeqValidatedReduced = tf.dtypes.cast(tMidSeqValidatedReduced, tf.int32)
 			tMaxSeqValidatedReduced = tf.dtypes.cast(tMaxSeqValidatedReduced, tf.int32)
-			VseqReduced = tf.reduce_any(Vseq, axis=1)
 		else:
 			#take subinput with max input signal (AseqInput)
 			tMinSeqValidatedReduced = tMinSeq[:, ZseqIndex, :]
 			tMidSeqValidatedReduced = tMidSeq[:, ZseqIndex, :]
 			tMaxSeqValidatedReduced = tMaxSeq[:, ZseqIndex, :]
-			VseqReduced = Vseq[:, ZseqIndex, :]
 
 	#calculate tMin/Mid/MaxNext (ie the tMin/Mid/Max values to be assigned to the current layer after it has been processed):
 	if(s == 0):
@@ -552,11 +577,13 @@ def TcontiguitySequentialInputFinaliseTemporaryVars(l, s, tMinSeq, tMidSeq, tMax
 		tMinSeqPrev = tMinSeqValidatedReduced
 		tMidSeqPrev = tMidSeqValidatedReduced
 		tMaxSeqPrev = tMaxSeqValidatedReduced
-		VseqPrev = VseqReduced
 	else:
 		tMinSeqPrev = tMinSeqTest
 		tMidSeqPrev = tMidSeqTest
 		tMaxSeqPrev = tMaxSeqTest
-		VseqPrev = Vseq
 	
-	return VseqPrev, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev
+	return tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev
+
+
+
+

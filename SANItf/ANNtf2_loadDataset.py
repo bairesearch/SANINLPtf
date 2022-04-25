@@ -335,6 +335,7 @@ def loadDatasetType1(datasetFileNameX, datasetFileNameY, addOnlyPriorUnidirectio
 
 	if(addOnlyPriorUnidirectionalPOSinputToTrain):
 		all_X = all_X[:, 0:datasetNumFeatures//2]
+		datasetNumFeatures = datasetNumFeatures/2
 
 	datasetNumExamplesTrain = int(float(datasetNumExamples)*percentageDatasetTrain/100.0)
 	datasetNumExamplesTest = int(float(datasetNumExamples)*(100.0-percentageDatasetTrain)/100.0)
