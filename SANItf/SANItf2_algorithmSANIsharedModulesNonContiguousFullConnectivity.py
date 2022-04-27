@@ -187,8 +187,7 @@ def neuralNetworkPropagationSANI(x):
 			#	for l2 in range(0, l2Max+1):
 			#		WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = tf.Variable(tf.zeros([n_h[l2], n_h[l]]), dtype=tf.float32)	
 					
-	if(SANIsharedModules):
-			
+	if(SANIsharedModules):	
 		#optimise feed length based on max sentence length in batch:
 		#unoptimised: numberOfFeatures = x.shape[1]
 		xIsNotPadding = tf.math.less(x, paddingTagIndex) #tf.math.less(tf.dtypes.cast(x, tf.int32), paddingTagIndex)
@@ -232,8 +231,8 @@ def neuralNetworkPropagationSANI(x):
 			
 			#exit()
 	else:
-
 		AfirstLayer = x
+		print("x = ", x.shape)
 		
 		AfirstLayer = tf.dtypes.cast(AfirstLayer, tf.float32)	#added 01 Sept 2021 #convert input from int to float
 		A[generateParameterName(0, "A")] = AfirstLayer
@@ -332,7 +331,8 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			#print("VseqExisting = ", VseqExisting)	
 			#print("ZseqPassThresold = ", ZseqPassThresold)
 			if(printStatus):
-				print("VseqUpdated = ", VseqUpdated)
+				pass
+				#print("VseqUpdated = ", VseqUpdated)
 				#print("ZseqPassThresold = ", ZseqPassThresold)
 				#print("ZseqCurrent = ", ZseqCurrent)
 				#print("VseqFloat = ", VseqFloat)

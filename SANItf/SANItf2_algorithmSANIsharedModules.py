@@ -325,6 +325,8 @@ def neuralNetworkPropagationSANI(x):
 							#printShape(CseqCrossLayer, "CseqCrossLayer")						
 							AseqInput = tf.gather(AprevLayerAll, CseqCrossLayer, axis=1)
 						else:
+							#print("AprevLayer = ", AprevLayer.shape)
+							#print("Cseq = ", Cseq[generateParameterNameSeq(l, s, "Cseq")].shape)
 							AseqInput = tf.gather(AprevLayer, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
 					else:
 						if(supportSkipLayers):

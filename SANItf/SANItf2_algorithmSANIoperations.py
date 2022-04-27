@@ -85,25 +85,33 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 	
 	#useSmallSentenceLengths not implemented
 
-	if(inputNumberFeaturesForCurrentWordOnly):
-		inputLength = numberOfFeaturesPerWord
-	else:
-		inputLength = numberOfFeaturesPerWord*numberOfWordsInConvolutionalWindowSeen
-	firstLayerSize = inputLength*inputLength	#or datasetNumFeatures
+	layerSizeMultiplier = numberOfFeaturesPerWord
+	firstLayerSize = numberOfFeaturesPerWord*layerSizeMultiplier	#or datasetNumFeatures
 	#if(supportFeedback):
-	#	layerSizeMultiplier = 2
+	#	layerSizeMultiplier2 = 2
 	#else:
-	#	layerSizeMultiplier = 1
-
-	if(dataset == "POStagSentence"):
+	#	layerSizeMultiplier2 = 1
+	
+	if((dataset == "POStagSentence") or (dataset == "POStagSequence") or (dataset == "wikiXmlDataset")):
+	
+		numberOfWordsInConvolutionalWindowSeen = getNumberOfWordsInConvolutionalWindowSeenFromDatasetPOStagSequence(dataset, num_input_neurons, numberOfFeaturesPerWord)
+		
+		if(inputNumberFeaturesForCurrentWordOnly):
+			inputLength = numberOfFeaturesPerWord
+		else:
+			inputLength = numberOfFeaturesPerWord*numberOfWordsInConvolutionalWindowSeen
 		n_x = inputLength #datasetNumFeatures
 		#print("n_x = ", n_x)
-		if(useLearningRuleBackpropagation):
-			n_y = numberOfFeaturesPerWord  
+		
+		if(dataset == "POStagSequence"):
+			n_y = num_output_neurons  #typically equivalent to datasetNumClasses and numberOfFeaturesPerWord
 		else:
-			n_y = 1	#SANIshared uses a single output neuron (either 1 or 0)	#if multiple output classes: n_y = num_output_neurons-1 or datasetNumClasses-1	
-		n_h_0 = n_x
-							
+			if(useLearningRuleBackpropagation):
+				n_y = numberOfFeaturesPerWord  
+			else:
+				n_y = 1	#SANIshared uses a single output neuron (either 1 or 0)	#if multiple output classes: n_y = num_output_neurons-1 or datasetNumClasses-1	
+										
+		n_h_0 = n_x	
 		if(layerSizeConvergence):
 			#FUTURE: the number of neurons/connections should be greatly increased, then pruned
 			n_h_1 = int(firstLayerSize)
@@ -116,44 +124,16 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 			layerSizeDivergenceExponential = False	#else linear	
 			if(layerSizeDivergenceExponential):
 				n_h_1 = int(firstLayerSize)
-				n_h_2 = int(firstLayerSize*inputLength)
-				n_h_3 = int(firstLayerSize*inputLength*inputLength)
-				n_h_4 = int(firstLayerSize*inputLength*inputLength)
+				n_h_2 = int(firstLayerSize*layerSizeMultiplier)
+				n_h_3 = int(firstLayerSize*layerSizeMultiplier*layerSizeMultiplier)
+				n_h_4 = int(firstLayerSize*layerSizeMultiplier*layerSizeMultiplier)
 			else:
 				#*x for skip layers #FUTURE: upgrade to support multiple permutations
 				n_h_1 = int(firstLayerSize*1)
 				n_h_2 = int(firstLayerSize*2)
 				n_h_3 = int(firstLayerSize*3)
 				n_h_4 = int(firstLayerSize*4)
-				
-		if(useLearningRuleBackpropagation):
-			n_h_5 = n_h_4
-		else:		
-			n_h_5 = n_y
-		n_h = [n_h_0, n_h_1, n_h_2, n_h_3, n_h_4, n_h_5]		
-	elif(dataset == "POStagSequence"):		
-		#print("num_input_neurons = ", num_input_neurons)
-		n_x = num_input_neurons #datasetNumFeatures
-		n_y = num_output_neurons  #datasetNumClasses
-		n_h_0 = n_x
 
-		if(layerSizeConvergence):
-			n_h_1 = int(firstLayerSize)
-			n_h_2 = int(firstLayerSize/2)
-			n_h_3 = int(firstLayerSize/4)
-			n_h_4 = int(firstLayerSize/8)
-			#n_h_1 = int(firstLayerSize*3)
-			#n_h_2 = int(firstLayerSize/2)
-		else:
-			n_h_1 = int(firstLayerSize*1)
-			n_h_2 = int(firstLayerSize*2)
-			n_h_3 = int(firstLayerSize*3)
-			n_h_4 = int(firstLayerSize*4)
-			#n_h_1 = int(firstLayerSize*10)
-			#n_h_2 = int(firstLayerSize*10)
-			#n_h_3 = int(firstLayerSize*10)
-			#n_h_4 = int(firstLayerSize*10)
-			
 		if(useLearningRuleBackpropagation):
 			n_h_5 = n_h_4
 		else:		
@@ -167,43 +147,6 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 	#	else:		
 	#		n_h_3 = n_y
 	#	n_h = [n_h_0, n_h_1, n_h_2, n_h_3]
-	elif(dataset == "wikiXmlDataset"):
-		#wikiXmlDataset has same formal processed dataset format as POStagSentence
-		n_x = inputLength #datasetNumFeatures
-		#print("n_x = ", n_x)
-		if(useLearningRuleBackpropagation):
-			n_y = numberOfFeaturesPerWord  
-		else:
-			n_y = 1	#SANIshared uses a single output neuron (either 1 or 0)	#if multiple output classes: n_y = num_output_neurons-1 or datasetNumClasses-1	
-		n_h_0 = n_x
-							
-		if(layerSizeConvergence):
-			#FUTURE: the number of neurons/connections should be greatly increased, then pruned
-			n_h_1 = int(firstLayerSize)
-			n_h_2 = int(firstLayerSize/2)
-			n_h_3 = int(firstLayerSize/4)
-			n_h_4 = int(firstLayerSize/8)
-			#n_h_1 = int(firstLayerSize*3)
-			#n_h_2 = int(firstLayerSize/2)
-		else:
-			layerSizeDivergenceExponential = False	#else linear	
-			if(layerSizeDivergenceExponential):
-				n_h_1 = int(firstLayerSize)
-				n_h_2 = int(firstLayerSize*inputLength)
-				n_h_3 = int(firstLayerSize*inputLength*inputLength)
-				n_h_4 = int(firstLayerSize*inputLength*inputLength)
-			else:
-				#*x for skip layers #FUTURE: upgrade to support multiple permutations
-				n_h_1 = int(firstLayerSize*1)
-				n_h_2 = int(firstLayerSize*2)
-				n_h_3 = int(firstLayerSize*3)
-				n_h_4 = int(firstLayerSize*4)
-				
-		if(useLearningRuleBackpropagation):
-			n_h_5 = n_h_4
-		else:		
-			n_h_5 = n_y
-		n_h = [n_h_0, n_h_1, n_h_2, n_h_3, n_h_4, n_h_5]	
 	else:
 		print("defineNetworkParametersSANI: dataset unsupported")
 		exit()

@@ -57,7 +57,6 @@ if(algorithm == "SANI"):
 	elif(algorithmSANI == "sharedModulesBinary"):
 		import SANItf2_algorithmSANIsharedModulesBinary as SANItf2_algorithm
 	elif(algorithmSANI == "sharedModules"):
-		costCrossEntropyWithLogits = True
 		import SANItf2_algorithmSANIsharedModules as SANItf2_algorithm
 	elif(algorithmSANI == "repeatedModules"):
 		import SANItf2_algorithmSANIrepeatedModules as SANItf2_algorithm
@@ -115,7 +114,6 @@ if(algorithm == "SANI"):
 		else:
 			NLPsequentialInputTypesMaxLength = [100, 100, 100, 100]	#implementation does not require this to be equal for each type	#inputs shorter than max length are padded
 
-
 			
 if(debugUseSmallSequenceDataset):
 	dataset1FileNameXstart = "Xdataset1PartSmall"
@@ -161,18 +159,24 @@ def trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, op
 			#generate batchY based on nextWord in sequence
 			#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
 			#print("batchX.shape[1] = ", batchX.shape[1])
-			maximumSentenceLength = batchX.shape[1]//numberOfFeaturesPerWord
-			paddingCharacter = str(paddingTagIndex)[0]
+			num_input_neurons = batchX.shape[1]
+			numberOfWordsInConvolutionalWindowSeen = SANItf2_algorithmSANIglobalDefs.getNumberOfWordsInConvolutionalWindowSeenFromDatasetPOStagSequence(dataset, num_input_neurons, numberOfFeaturesPerWord)
+			#print("numberOfWordsInConvolutionalWindowSeen = ", numberOfWordsInConvolutionalWindowSeen)
+			maximumSentenceWord = num_input_neurons//numberOfFeaturesPerWord - numberOfWordsInConvolutionalWindowSeen
+			#paddingCharacter = str(paddingTagIndex)[0]
 			#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
-			#print("maximumSentenceLength = ", maximumSentenceLength)
-			firstWordIndex = 0
-			for w in range(firstWordIndex, maximumSentenceLength-1):
-				nextWordFeatureIndex = (w+1)*numberOfFeaturesPerWord
+			#print("maximumSentenceWord = ", maximumSentenceWord)
+			for w in range(0, maximumSentenceWord):
+				if(SANItf2_algorithmSANIglobalDefs.SANIsharedModules):
+					firstWordIndex = 0
+				else:
+					firstWordIndex = w*numberOfFeaturesPerWord
+				nextWordFeatureIndex = (w+numberOfWordsInConvolutionalWindowSeen)*numberOfFeaturesPerWord				
+				batchXsubset = batchX[:, firstWordIndex:nextWordFeatureIndex]
+				batchYsubset = batchX[:, nextWordFeatureIndex:nextWordFeatureIndex+numberOfFeaturesPerWord]					
 				#print("batchX.shape = ", batchX.shape)
 				#print("nextWordFeatureIndex = ", nextWordFeatureIndex)
 				#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
-				batchXsubset = batchX[:, firstWordIndex:nextWordFeatureIndex]
-				batchYsubset = batchX[:, nextWordFeatureIndex:nextWordFeatureIndex+numberOfFeaturesPerWord]
 				print("batchXsubset.shape = ", batchXsubset.shape)
 				print("batchYsubset.shape = ", batchYsubset.shape)
 				#print("numberOfLayers = ", numberOfLayers)
@@ -237,8 +241,8 @@ def calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossE
 	acc = 0	#only valid for softmax class targets 
 	pred = neuralNetworkPropagation(x, networkIndex)
 	target = y 
-	#print("pred = ", pred) 
-	#print("target = ", target) 
+	#print("pred = ", pred.shape) 
+	#print("target = ", target.shape) 
 		
 	singleTarget = False
 	if(dataset == "POStagSentence"):
@@ -249,6 +253,7 @@ def calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossE
 		#print("oneHotEncoded")
 		target = tf.dtypes.cast(target, tf.float32)
 	elif(dataset == "POStagSequence"):
+		#print("POStagSequence")
 		oneHotEncoded = False
 		singleTarget = True
 		target = tf.dtypes.cast(target, tf.int32)

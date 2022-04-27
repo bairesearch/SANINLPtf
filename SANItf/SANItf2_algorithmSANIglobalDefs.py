@@ -91,7 +91,10 @@ if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	if(useMultipleSubinputsPerSequentialInput):
 		#allowMultipleSubinputsPerSequentialInput = True	#implied variable (granted via full connectivity)
 		pass
-	inputNumberFeaturesForCurrentWordOnly = True	#optional
+	if(SANIsharedModules):
+		inputNumberFeaturesForCurrentWordOnly = True	#optional
+	else:
+		inputNumberFeaturesForCurrentWordOnly = False
 elif(algorithmSANI == "sharedModulesBinary"):
 	if(useMultipleSubinputsPerSequentialInput):
 		allowMultipleSubinputsPerSequentialInput = True		#originally set as False
@@ -141,7 +144,7 @@ elif(algorithmSANI == "repeatedModules"):
 	if(useMultipleSubinputsPerSequentialInput):
 		allowMultipleSubinputsPerSequentialInput = True
 	useSparseTensors = True	#mandatory
-	inputNumberFeaturesForCurrentWordOnly = True
+	inputNumberFeaturesForCurrentWordOnly = False
 
 if(useMultipleSubinputsPerSequentialInput):
 	layerSizeConvergence = False #OLD: True	#CHECKTHIS
@@ -463,4 +466,15 @@ if(useSkipLayers):
 #			maximumConnectionWeight = 1.0
 
 
+#def setNumberOfWordsInConvolutionalWindowSeenFromDatasetPOStagSequence(n):
+#	global numberOfWordsInConvolutionalWindowSeen
+#	numberOfWordsInConvolutionalWindowSeen = n
 
+def getNumberOfWordsInConvolutionalWindowSeenFromDatasetPOStagSequence(dataset, num_input_neurons, numberOfFeaturesPerWord):
+	if(dataset == "POStagSequence" and not SANIsharedModules):
+		return num_input_neurons//numberOfFeaturesPerWord
+	else:
+		return numberOfWordsInConvolutionalWindowSeen
+		
+	
+		
