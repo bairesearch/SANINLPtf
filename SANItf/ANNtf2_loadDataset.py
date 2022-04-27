@@ -13,7 +13,7 @@ see ANNtf2.py
 see ANNtf2.py
 
 # Description:
-ANNtf2 load dataset
+ANNtf load dataset
 
 # Datasets:
 
@@ -136,11 +136,15 @@ import csv
 import tensorflow as tf
 import numpy as np
 from numpy import genfromtxt
-import ANNtf2_globalDefs
-#from nltk import tokenize	#required for ANNtf2_loadDataset loadDatasetType4 only
-import re
-import ANNtf2_operations
 
+#required for ANNtf2_loadDataset loadDatasetType4 only:
+import re
+from nltk import tokenize
+import spacy
+spacyWordVectorGenerator = spacy.load('en_core_web_md')	#spacy.load('en_core_web_lg')
+
+import ANNtf2_globalDefs
+import ANNtf2_operations
 
 datasetFolderRelative = "datasets"
 
@@ -154,10 +158,12 @@ datasetType1alreadyNormalised = True	#if True, assume that the dataset includes 
 datasetType2alreadyNormalised = False	#if True, assume that the dataset includes values between 0 and 1 only
 datasetType3alreadyNormalised = True	#if True, assume that the dataset includes values between 0 and 1 only
 
-numberOfFeaturesPerWord = 53	#last feature identifies word as out of sentence padding (out of sentence padding is not expected by loadDatasetType3 as each row only contains data of a specific sentence length; out of sentence padding will be applied by ANNtf2_loadDataset after data is read)
+numberOfFeaturesPerWordPOStag = 53	#if dataset is POStagSequence/POStagSentence; numberOfFeaturesPerWord = numberOfFeaturesPerWordPOStag
+	#last feature identifies word as out of sentence padding (out of sentence padding is not expected by loadDatasetType3 as each row only contains data of a specific sentence length; out of sentence padding will be applied by ANNtf2_loadDataset after data is read)
 optimiseFeedLength = True
 if(optimiseFeedLength):
-	paddingTagIndex = 9	#out of sentence features will be padded with this character
+	paddingTagIndex = 9	#out of sentence features will be padded with this value	#or -1 or 0
+	#paddingTagIndex implementation not currently robust for dataset="wikiXmlDataset" (loadDatasetType4/convertArticlesTreeToSentencesWordVectors) as wordVector components may sometimes express this special index when not out of sentence bounds
 else:
 	paddingTagIndex = 0
 
@@ -242,7 +248,7 @@ def loadtxt(filename, delimiter=',', classColumnFirst=True, numeriseClassColumn=
 	return data
 
 
-def iter_loadtxt(filename, delimiter=',', skiprows=0, dtype=float, normaliseRowLengthWithPad=False, normaliseRowLengthWithPadLimit=False, padCharacter='0', maxRowLength=100, minRowLength=0):
+def iter_loadtxt(filename, delimiter=',', skiprows=0, dtype=float, normaliseRowLengthWithPad=False, normaliseRowLengthWithPadLimit=False, padString='0', maxRowLength=100, minRowLength=0):
 	
 	absFilePath = createFileAbsPath(filename)
 	
@@ -291,7 +297,7 @@ def iter_loadtxt(filename, delimiter=',', skiprows=0, dtype=float, normaliseRowL
 				
 				if(passSentenceLengthReq):
 					if(normaliseRowLengthWithPad):
-						template = [padCharacter] * iter_loadtxt.maxNumberOfItemsPerRow
+						template = [padString] * iter_loadtxt.maxNumberOfItemsPerRow
 						lineCropped = line[:iter_loadtxt.maxNumberOfItemsPerRow]
 						template[:len(lineCropped)] = lineCropped
 						#print("len(template) = ", len(template))
@@ -314,7 +320,7 @@ def hotEncode(y, maxY):
 	yHotEncoded[y-1] = 1
 	return yHotEncoded
 			
-def loadDatasetType1(datasetFileNameX, datasetFileNameY, addOnlyPriorUnidirectionalPOSinputToTrain=False, dataType=float):
+def loadDatasetType1(datasetFileNameX, datasetFileNameY, addOnlyPriorUnidirectionalPOSinputToTrain=False, dataType=float, numberOfFeaturesPerWord=numberOfFeaturesPerWordPOStag):
 	
 	#all_X = genfromtxt(datasetFileNameX, delimiter=' ', dtype=dataType)
 	#all_Y = genfromtxt(datasetFileNameY, delimiter=' ', dtype=dataType)
@@ -335,7 +341,7 @@ def loadDatasetType1(datasetFileNameX, datasetFileNameY, addOnlyPriorUnidirectio
 
 	if(addOnlyPriorUnidirectionalPOSinputToTrain):
 		all_X = all_X[:, 0:datasetNumFeatures//2]
-		datasetNumFeatures = datasetNumFeatures/2
+		datasetNumFeatures = datasetNumFeatures//2
 
 	datasetNumExamplesTrain = int(float(datasetNumExamples)*percentageDatasetTrain/100.0)
 	datasetNumExamplesTest = int(float(datasetNumExamples)*(100.0-percentageDatasetTrain)/100.0)
@@ -368,7 +374,7 @@ def loadDatasetType1(datasetFileNameX, datasetFileNameY, addOnlyPriorUnidirectio
 	train_y, test_y = np.array(train_y, np.uint8), np.array(test_y, np.uint8) 
 	#https://www.tensorflow.org/api_docs/python/tf/keras/datasets/mnist/load_data?version=stable
 	#https://medium.com/@HojjatA/could-not-find-valid-device-for-node-while-eagerly-executing-8f2ff588d1e
-
+	
 	paddingTagIndexNA = paddingTagIndex
 	return numberOfFeaturesPerWord, paddingTagIndexNA, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 
@@ -465,7 +471,7 @@ def loadDatasetType2(datasetFileName, classColumnFirst=True, equaliseNumberExamp
 	return datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 	
 
-def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths, dataType=float):
+def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths, dataType=float, numberOfFeaturesPerWord=numberOfFeaturesPerWordPOStag):
 		
 	padExamples = True
 	cropExamples = True
@@ -491,7 +497,7 @@ def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSun
 			yClassNegative = 0
 		
 	#all_X = genfromtxt(datasetFileNameX, delimiter=' ')
-	paddingCharacter = str(paddingTagIndex)[0]
+	paddingString = str(paddingTagIndex)[0]
 	
 	if(dataType == bool):
 		xPOStagActive = True
@@ -506,11 +512,11 @@ def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSun
 		for w in range(ANNtf2_globalDefs.testHarnessNumWords):
 			line[numberOfFeaturesPerWord*w+w] = xPOStagActive
 		
-		template = [paddingCharacter] * maximumNumFeatures
+		template = [paddingString] * maximumNumFeatures
 		template[:len(line)] = line
 		all_X = np.expand_dims(template, 0)
 	else:
-		all_X = iter_loadtxt(datasetFileNameX, delimiter=' ', normaliseRowLengthWithPad=True, normaliseRowLengthWithPadLimit=True, padCharacter=paddingCharacter, maxRowLength=maximumNumFeatures, minRowLength=minimumNumFeatures, dtype=dataType)
+		all_X = iter_loadtxt(datasetFileNameX, delimiter=' ', normaliseRowLengthWithPad=True, normaliseRowLengthWithPadLimit=True, padString=paddingString, maxRowLength=maximumNumFeatures, minRowLength=minimumNumFeatures, dtype=dataType)
 	
 	if(onlyAddPOSunambiguousInputToTrain):
 		
@@ -742,8 +748,20 @@ def generatePOSambiguityInfoUnambiguousPermutationArray(POSambiguityInfoUnambigu
 			generatePOSambiguityInfoUnambiguousPermutationArray(POSambiguityInfoUnambiguousPermutationArray, POSambiguityInfoPermutation, POSambiguityInfoUnambiguousPermutationLocal, wordIndex+1)
 
 
+#code moved from AEANNtf_main.py/AEANNtf_algorithmSequentialInput.py | ATNLPtf_normalisation.py;
+#should be defined as preprocessor defs (non-variable);
+NLPsequentialInputTypeCharacters = 0
+NLPsequentialInputTypeWords = 1
+NLPsequentialInputTypeSentences = 2
+NLPsequentialInputTypeParagraphs = 3	
+NLPsequentialInputTypeArticles = 4
+NLPsequentialInputTypes = ["characters", "words", "sentences", "paragraphs"]
+NLPsequentialInputNumberOfTypes = len(NLPsequentialInputTypes)
+wordVectorLibraryNumDimensions = 300	#https://spacy.io/models/en#en_core_web_md (300 dimensions)
+				
+				
 #useSmallSentenceLengths: eliminate smaller sentences from dataset (do not crop them)
-def loadDatasetType4(datasetFileNameX, sequentialInputTypesMaxLength, useSmallSentenceLengths, sequentialInputTypeTrainWordVectors):
+def loadDatasetType4(datasetFileNameX, NLPsequentialInputTypesMaxLength, useSmallSentenceLengths, NLPsequentialInputTypeTrainWordVectors):
 	
 	splitTextDatasetByWikiTags = True
 	
@@ -776,10 +794,10 @@ def loadDatasetType4(datasetFileNameX, sequentialInputTypesMaxLength, useSmallSe
 				wordsText = tokenize.word_tokenize(sentence)
 				sentenceLengthCheck = True
 				if(useSmallSentenceLengths):
-					if(len(wordsText) > sequentialInputTypesMaxLength[1]):
+					if(len(wordsText) > NLPsequentialInputTypesMaxLength[NLPsequentialInputTypeWords]):
 						sentenceLengthCheck = False				
 				if(sentenceLengthCheck):
-					if(sequentialInputTypeTrainWordVectors):
+					if(NLPsequentialInputTypeTrainWordVectors):
 						words = []
 						for wordIndex, word in enumerate(wordsText):
 							#print("\t\t\t\twordIndex = ", wordIndex)
@@ -801,7 +819,7 @@ def loadDatasetType4(datasetFileNameX, sequentialInputTypesMaxLength, useSmallSe
 		
 	return articles
 
-
+	
 def equaliseClassExamples(xRaw, yRaw):
 
 	numberOfClasses = int(np.amax(yRaw))
@@ -841,3 +859,86 @@ def equaliseClassExamples(xRaw, yRaw):
 	#print("yRawEqualised = ", yRawEqualised)
 	
 	return xRawEqualised, yRawEqualised
+
+
+
+def convertArticlesTreeToSentencesWordVectors(articles, NLPsequentialInputTypesMaxLength, numberOfFeaturesPerWord=wordVectorLibraryNumDimensions):
+
+	dataType = float 	#mandatory
+	padExamples = True	#mandatory
+	cropExamples = True	#mandatory
+	minimumSentenceLength = 0
+	maximumSentenceLength = NLPsequentialInputTypesMaxLength[NLPsequentialInputTypeWords]
+		
+	articles = flattenNestedListToSentences(articles)
+	sentenceListWordVectors = []
+	for sentence in articles:	#sentence: is a list of words (strings)
+		inputVectorList = generateWordVectorInputList(sentence, wordVectorLibraryNumDimensions)	#numberSequentialInputs x inputVecDimensions	#inputVectorList: is a list of numpy vectors
+		inputVectorList = cropAndPadWordVectorInputList(inputVectorList, maximumSentenceLength, paddingTagIndex, numberOfFeaturesPerWord, dataType)
+		inputVectorNP = np.asarray(inputVectorList)
+		inputVectorNP = inputVectorNP.flatten()	#default data format used by *ANNtf 
+		#print("inputVectorNP.shape = ", inputVectorNP.shape)
+		sentenceListWordVectors.append(inputVectorNP)
+	all_Xnormalised = np.asarray(sentenceListWordVectors)
+	#print("all_Xnormalised.shape = ", all_Xnormalised.shape)
+	print("all_Xnormalised.shape = ", all_Xnormalised.shape)
+	
+	datasetNumFeatures = all_Xnormalised.shape[1]/wordVectorLibraryNumDimensions
+	datasetNumClasses = -1
+	datasetNumExamples = all_Xnormalised.shape[0]
+	
+	datasetNumExamplesTrain = int(float(datasetNumExamples)*percentageDatasetTrain/100.0)
+	datasetNumExamplesTest = int(float(datasetNumExamples)*(100.0-percentageDatasetTrain)/100.0)
+
+	#loadDatasetType3/loadDatasetType4: train_y/test_y (indicating syntatically valid X input; all ones) is typically digarded (and regenerated dynamically based on next word prediction input data creation)
+	all_Y = np.ones(datasetNumExamples, dtype=dataType)
+	all_Ynormalised = all_Y
+	
+	train_x = all_Xnormalised[0:datasetNumExamplesTrain, :]
+	test_x = all_Xnormalised[-datasetNumExamplesTest:, :]
+	train_y = all_Ynormalised[0:datasetNumExamplesTrain]	#None
+	test_y = all_Ynormalised[-datasetNumExamplesTest:]	#None
+	
+	return numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
+
+def flattenNestedListToSentences(articles):
+	articlesFlattened = []
+	nestedList = articles
+	for NLPsequentialInputTypeIndex in range(NLPsequentialInputTypeArticles, NLPsequentialInputTypeSentences, -1):
+		#print("NLPsequentialInputTypeIndex = ", NLPsequentialInputTypeIndex)
+		flattenedList = []
+		for content in nestedList:
+			flattenedList.extend(content)
+		#print("flattenedList = ", flattenedList)
+		nestedList = flattenedList	#for recursion
+	articlesFlattened = nestedList
+	#print("articles = ", articles)
+	#print("listDimensions(articlesFlattened) = ", listDimensions(articlesFlattened))
+	return articlesFlattened
+			
+def generateWordVectorInputList(textContentList, NLPsequentialInputDimensions):
+	inputVectorList = []
+	for word in textContentList:
+		#print("word = ", word)
+		doc = spacyWordVectorGenerator(word)
+		wordVectorList = doc[0].vector	#verify type numpy
+		wordVector = np.array(wordVectorList)
+		#print("word = ", word, " wordVector = ", wordVector)
+		#print("wordVector.shape = ", wordVector.shape)
+		inputVectorList.append(wordVector)
+	return inputVectorList
+
+def cropAndPadWordVectorInputList(inputVectorList, maximumSentenceLength, paddingTagIndex, numberOfFeaturesPerWord, dataType):
+	inputVectorListCroppedPadded = []
+	
+	inputVectorListLen = len(inputVectorList)
+	for i in range(maximumSentenceLength):
+		if(i < inputVectorListLen):
+			inputVectorListCroppedPadded.append(inputVectorList[i])
+		else:
+			wordVectorPadding = np.full((numberOfFeaturesPerWord), paddingTagIndex, dtype=dataType)
+			#print("wordVectorPadding.shape = ", wordVectorPadding.shape)
+			inputVectorListCroppedPadded.append(wordVectorPadding)
+			
+	return inputVectorListCroppedPadded
+	

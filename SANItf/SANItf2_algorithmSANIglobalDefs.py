@@ -30,6 +30,7 @@ algorithmSANI = "sharedModules"
 
 #parameter configuration (all algorithmSANI):
 printStatus = True
+dataset = "POStagSentence"	#optional: POStagSentence or POStagSequence or wikiXmlDataset
 useLearningRuleBackpropagation = True	#optional (untested)
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	useTcontiguity = False	#mandatory false (not supported)
@@ -47,6 +48,19 @@ if(useSequentialInputs):
 else:
 	numberOfSequentialInputs = 1
 
+
+if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
+	SANIsharedModules = True	#optional
+elif(algorithmSANI == "sharedModulesBinary"):
+	SANIsharedModules = True	#mandatory (only coded implementation)
+elif(algorithmSANI == "sharedModules"):
+	SANIsharedModules = True	#mandatory	(only coded implementation)
+elif(algorithmSANI == "repeatedModules"): 	
+	SANIsharedModules = False	#mandatory (only coded implementation)
+#SANIsharedModules note: uses shifting input x feed, enabling identical input subsets (eg phrases/subreferencesets) irrespective of their sentence position to be sent to same modules/neurons
+
+
+#POStagSequence dataset contains equal length input sequences, POStagSentence dataset contains arbitarily lengthed input sequences
 
 
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
@@ -70,17 +84,6 @@ elif(algorithmSANI == "repeatedModules"):
 	#SANIsharedModules=False would need to be upgraded to perform multiple forward pass iterations
 	
 veryLargeInt = 99999999
-
-
-if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
-	SANIsharedModules = True	#optional
-elif(algorithmSANI == "sharedModulesBinary"):
-	SANIsharedModules = True	#mandatory (only coded implementation)
-elif(algorithmSANI == "sharedModules"):
-	SANIsharedModules = True	#mandatory	(only coded implementation)
-elif(algorithmSANI == "repeatedModules"): 	
-	SANIsharedModules = False	#mandatory (only coded implementation)
-#SANIsharedModules note: uses shifting input x feed, enabling identical input subsets (eg phrases/subreferencesets) irrespective of their sentence position to be sent to same modules/neurons
 
 
 allowMultipleSubinputsPerSequentialInput = False	#initialise
