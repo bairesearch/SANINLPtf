@@ -25,11 +25,13 @@ from ANNtf2_operations import * #generateParameterNameSeq, generateParameterName
 
 
 #if(useLearningRuleBackpropagation):
-def generatePrediction(ZlastLayer, Whead):
-	#print("ZlastLayer.shape = ", ZlastLayer.shape) 
-	#print("Whead.shape = ", Whead.shape) 
+def generatePrediction(ZlastLayer, Whead, applySoftmax=True):
+	#print("ZlastLayer = ", ZlastLayer) 
+	#print("Whead = ", Whead) 
 	pred = tf.matmul(ZlastLayer, Whead)
-	pred = tf.nn.softmax(pred)	#tf.nn.sigmoid(ZlastLayer)
+	if(applySoftmax):
+		pred = tf.nn.softmax(pred)	#tf.nn.sigmoid(pred)
+	#print("pred = ", pred)
 	#print("pred.shape = ", pred.shape) 
 	return pred				
 	#if POStagSequence, pred is compared against single target/POS value (as Ydataset1PartSmall0000.dat is defined as having a single class target: unambiguous pos prediction)
@@ -42,41 +44,28 @@ def defineTrainingParametersSANI(dataset, trainMultipleFiles):
 		learningRate = 0.001
 		trainingSteps = 1
 		numEpochs = 1
+	elif(debugFastTrain):
+	   learningRate = 0.001
+	   trainingSteps = 10000
+	   numEpochs = 10
 	else:
 		learningRate = 0.001
-		if(dataset == "POStagSentence"):
-			trainingSteps = 10000
-		elif(dataset == "POStagSequence"):
-			trainingSteps = 10000
-		elif(dataset == "SmallDataset"):
-			trainingSteps = 1000
-		elif(dataset == "wikiXmlDataset"):
-			trainingSteps = 1000
+		trainingSteps = 10000
 		numEpochs = 10
 		#if(trainMultipleFiles):
 		#else:
-		
-	if(dataset == "wikiXmlDataset"):
-		#requires more memory
-		batchSize = 10
-		displayStep = 10
+	
+	if(debugFastTrain):
+	   batchSize = 1
+	   displayStep = 1
 	else:
-		batchSize = 100
-		displayStep = 100
-			
-	#if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
-	#	batchSize = 1	#4	#32	#128	#256	#1 is required for hebbian learning
-	#	displayStep = 1	
-	#elif(algorithmSANI == "sharedModulesBinary"):
-	#	batchSize = 1	#4	#32	#128	#256
-	#	displayStep = 1	
-	#else:
-	#	if(allowMultipleSubinputsPerSequentialInput):
-	#		batchSize = 100
-	#		displayStep = 100
-	#	else:
-	#		batchSize = 10	#50
-	#		displayStep = 100	
+		if(dataset == "wikiXmlDataset"):
+			#requires more memory
+			batchSize = 10
+			displayStep = 10
+		else:
+			batchSize = 100
+			displayStep = 100	
 
 	return learningRate, trainingSteps, batchSize, displayStep, numEpochs
 			
@@ -86,7 +75,10 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 	#useSmallSentenceLengths not implemented
 
 	layerSizeMultiplier = numberOfFeaturesPerWord
-	firstLayerSize = numberOfFeaturesPerWord*layerSizeMultiplier	#or datasetNumFeatures
+	if(dataset == "wikiXmlDataset"):
+		firstLayerSize = numberOfFeaturesPerWord*10
+	else:
+		firstLayerSize = numberOfFeaturesPerWord*layerSizeMultiplier	#or datasetNumFeatures
 	#if(supportFeedback):
 	#	layerSizeMultiplier2 = 2
 	#else:
@@ -172,6 +164,10 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 						l2Max = numberOfLayers
 					else:
 						l2Max = l1-1
+					if(supportSkipLayers):
+						l2Min = 0
+					else:
+						l2Min = l1-1
 					for l2 in range(0, l2Max+1):
 
 						#print("\tl = " + str(l1))

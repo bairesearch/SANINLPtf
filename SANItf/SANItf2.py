@@ -42,7 +42,7 @@ import SANItf2_algorithmSANIglobalDefs
 #select algorithm:
 algorithm = "SANI"	#sequentially activated neuronal input artificial neural network	#incomplete+non-convergent
 
-suppressGradientDoNotExistForVariablesWarnings = True
+suppressGradientDoNotExistForVariablesWarnings = False
 
 if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
 	costCrossEntropyWithLogits = False
@@ -64,16 +64,14 @@ if(algorithm == "SANI"):
 						
 #learningRate, trainingSteps, batchSize, displayStep, numEpochs = -1
 
-#performance enhancements for development environment only: 
-debugUseSmallSequenceDataset = True	#def:False	#switch increases performance during development	#eg data-POStagSentence-smallBackup
-useSmallSentenceLengths = True	#def:False	#switch increases performance during development	#eg data-simple-POStagSentence-smallBackup
+#performance enhancements for development environment only:
 trainMultipleFiles = False	#def:True	#switch increases performance during development	#eg data-POStagSentence
 trainMultipleNetworks = False	#trial improve classification accuracy by averaging over multiple independently trained networks (test)
 numberOfNetworks = 1
 
 if(trainMultipleFiles):
 	fileIndexFirst = 0
-	if(useSmallSentenceLengths):
+	if(SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths):
 		fileIndexLast = 11
 	else:
 		fileIndexLast = 1202
@@ -83,6 +81,13 @@ if(trainMultipleFiles):
 #if onlyAddPOSunambiguousInputToTrain=True, do not train network with ambiguous POS possibilities
 #if generatePOSunambiguousInput=False and onlyAddPOSunambiguousInputToTrain=False, requires simultaneous propagation of different (ambiguous) POS possibilities
 
+limitSentenceLengths = True	#mandatory
+if(limitSentenceLengths):
+	if(SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths): 
+		limitSentenceLengthsSize = 30
+	else:
+		limitSentenceLengthsSize = 100	#or 50
+	
 if(algorithm == "SANI"):
 	dataset = SANItf2_algorithm.dataset
 	if(dataset == "POStagSentence"):
@@ -109,13 +114,10 @@ if(algorithm == "SANI"):
 		if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
 			generateSequenceNextWordPredictionTargets = True
 		NLPsequentialInputTypeTrainWordVectors = False	#False mandatory: lookup word vectors from preexisting database (do not train them)
-		if(useSmallSentenceLengths): 
-			NLPsequentialInputTypesMaxLength = [10, 10, 10, 10]	#temporarily reduce input size for debug/processing speed
-		else:
-			NLPsequentialInputTypesMaxLength = [100, 100, 100, 100]	#implementation does not require this to be equal for each type	#inputs shorter than max length are padded
+
 
 			
-if(debugUseSmallSequenceDataset):
+if(SANItf2_algorithmSANIglobalDefs.debugUseSmallSequenceDataset):
 	dataset1FileNameXstart = "Xdataset1PartSmall"
 	dataset1FileNameYstart = "Ydataset1PartSmall"
 	dataset3FileNameXstart = "Xdataset3PartSmall"
@@ -204,6 +206,8 @@ def executeOptimisation(x, y, datasetNumClasses, numberOfLayers, optimizer, netw
 	Blist = []
 	Wseqlist = []
 	Bseqlist = []
+	WheadList = []
+	WheadList.append(SANItf2_algorithm.Whead)
 	for l1 in range(1, numberOfLayers+1):
 		if(SANItf2_algorithmSANIglobalDefs.performSummationOfSequentialInputsWeighted):
 			Wlist.append(SANItf2_algorithm.W[generateParameterName(l1, "W")])
@@ -224,7 +228,7 @@ def executeOptimisation(x, y, datasetNumClasses, numberOfLayers, optimizer, netw
 					Bseqlist.append(SANItf2_algorithm.Bseq[generateParameterNameSeq(l1, s, "Bseq")])
 					Wseqlist.append(SANItf2_algorithm.Wseq[generateParameterNameSeq(l1, s, "Wseq")])
 				
-	trainableVariables = Wlist + Blist + Wseqlist + Bseqlist
+	trainableVariables = Wlist + Blist + Wseqlist + Bseqlist + WheadList
 
 	gradients = gt.gradient(loss, trainableVariables)
 						
@@ -304,14 +308,14 @@ def loadDataset(fileIndex):
 		if(trainDataIncludesSentenceOutOfBoundsIndex):
 			datasetNumClasses = datasetNumClasses + 1
 	elif(dataset == "POStagSentence"):
-		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = ANNtf2_loadDataset.loadDatasetType3(datasetType3FileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths)
+		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = ANNtf2_loadDataset.loadDatasetType3(datasetType3FileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, limitSentenceLengthsSize)
 	elif(dataset == "SmallDataset"):
 		datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = ANNtf2_loadDataset.loadDatasetType2(datasetType2FileName, datasetClassColumnFirst)
 		numberOfFeaturesPerWord = None
 		paddingTagIndex = None
 	elif(dataset == "wikiXmlDataset"):
-		articles = ANNtf2_loadDataset.loadDatasetType4(datasetType4FileName, NLPsequentialInputTypesMaxLength, useSmallSentenceLengths,  NLPsequentialInputTypeTrainWordVectors)
-		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = ANNtf2_loadDataset.convertArticlesTreeToSentencesWordVectors(articles, NLPsequentialInputTypesMaxLength)
+		articles = ANNtf2_loadDataset.loadDatasetType4(datasetType4FileName, limitSentenceLengths, limitSentenceLengthsSize, NLPsequentialInputTypeTrainWordVectors)
+		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = ANNtf2_loadDataset.convertArticlesTreeToSentencesWordVectors(articles, limitSentenceLengthsSize)
 
 	return numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 
@@ -331,7 +335,7 @@ def trainMinimal():
 	num_output_neurons = datasetNumClasses
 
 	learningRate, trainingSteps, batchSize, displayStep, numEpochs = defineTrainingParameters(dataset, numberOfFeaturesPerWord, paddingTagIndex)
-	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths, numberOfFeaturesPerWord)
 	defineNeuralNetworkParameters()
 														
 	#stochastic gradient descent optimizer
@@ -344,9 +348,12 @@ def trainMinimal():
 		fileIndex = 0
 		numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = loadDataset(fileIndex)
 
-		shuffleSize = datasetNumExamples	#heuristic: 10*batchSize
+		shuffleSize = getShuffleSize(datasetNumExamples, batchSize)
 		trainDataIndex = 0
 
+		print("shuffleSize = ", shuffleSize)
+		print("batchSize = ", batchSize)
+		#print("train_x.shape = ", train_x.shape)
 		trainData = generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize)
 		trainDataList = []
 		trainDataList.append(trainData)
@@ -382,7 +389,7 @@ def train(trainMultipleNetworks=False, trainMultipleFiles=False, greedy=False):
 	num_output_neurons = datasetNumClasses
 
 	learningRate, trainingSteps, batchSize, displayStep, numEpochs = defineTrainingParameters(dataset, numberOfFeaturesPerWord, paddingTagIndex)
-	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths, numberOfFeaturesPerWord)
 	defineNeuralNetworkParameters()
 
 	#configure optional parameters;
@@ -420,13 +427,14 @@ def train(trainMultipleNetworks=False, trainMultipleFiles=False, greedy=False):
 				
 			numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y = loadDataset(fileIndex)
 
-			shuffleSize = datasetNumExamples	#heuristic: 10*batchSize
+			shuffleSize = getShuffleSize(datasetNumExamples, batchSize)
 			trainDataIndex = 0
 
 			#greedy code;
 			for l in range(1, maxLayer+1):
 				print("l = ", l)
 				trainData = generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize)
+				#print("trainData = ", trainData)
 				trainDataList = []
 				trainDataList.append(trainData)
 				trainDataListIterators = []
@@ -475,6 +483,10 @@ def generateRandomisedIndexArray(indexFirst, indexLast, arraySize=None):
 	return fileIndexRandomArray
 							
 
+def getShuffleSize(datasetNumExamples, batchSize):	
+	#shuffleSize = min(datasetNumExamples, batchSize)	#heuristic: 10*batchSize
+	shuffleSize = datasetNumExamples
+	return shuffleSize
 				
 if __name__ == "__main__":
 	if(algorithm == "SANI"):

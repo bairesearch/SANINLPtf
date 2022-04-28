@@ -318,10 +318,10 @@ def neuralNetworkPropagationSANI(x):
 					if(performSummationOfSequentialInputsWeighted):
 						#apply weights to input of neuron sequential input
 						if(performSummationOfSubInputsNonlinear):
-							AseqWeighted = tf.multiply(Aseq[generateParameterNameSeq(l, s, "Aseq")], Wtiled)
+							AseqWeighted = tf.multiply(Aseq, Wtiled)
 							AseqWeightedSum = tf.math.add(AseqWeightedSum, AseqWeighted)	
 						else:
-							ZseqWeighted = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], Wtiled)
+							ZseqWeighted = tf.multiply(Zseq, Wtiled)
 							ZseqWeightedSum = tf.math.add(ZseqWeightedSum, ZseqWeighted)
 			else:
 				Zseq = AseqInput	

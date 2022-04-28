@@ -469,21 +469,58 @@ def loadDatasetType2(datasetFileName, classColumnFirst=True, equaliseNumberExamp
 	#https://medium.com/@HojjatA/could-not-find-valid-device-for-node-while-eagerly-executing-8f2ff588d1e
 
 	return datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
-	
 
-def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, useSmallSentenceLengths, dataType=float, numberOfFeaturesPerWord=numberOfFeaturesPerWordPOStag):
+
+def equaliseClassExamples(xRaw, yRaw):
+
+	numberOfClasses = int(np.amax(yRaw))
+	#print("numberOfClasses = ", numberOfClasses)
+
+	veryLargeInt = 9999999
+	classIndexCountMin = 0	
+	classIndexCountMinValue = veryLargeInt
+	for classIndex in range(1, numberOfClasses+1):
+		classIndexCount = np.count_nonzero(yRaw == classIndex)
+		#print("classIndexCount = ", classIndexCount)
+		if(classIndexCount < classIndexCountMinValue):
+			classIndexCountMin = classIndex
+			classIndexCountMinValue = classIndexCount
+	#print("classIndexCountMin = ", classIndexCountMin)
+	#print("classIndexCountMinValue = ", classIndexCountMinValue)
+	
+	xRawClassFilteredList = []
+	yRawClassFilteredList = []
+	
+	for classIndex in range(1, numberOfClasses+1):
+		xRawClassFiltered, yRawClassFiltered = ANNtf2_operations.filterNParraysByClassTarget(xRaw, yRaw, classTargetFilterIndex=classIndex)
+		xRawClassFiltered = xRawClassFiltered[0:classIndexCountMinValue] 
+		yRawClassFiltered = yRawClassFiltered[0:classIndexCountMinValue]
+		xRawClassFilteredList.append(xRawClassFiltered)
+		yRawClassFilteredList.append(yRawClassFiltered)
+		#print("xRawClassFiltered.shape = ", xRawClassFiltered.shape)
+		#print("yRawClassFiltered.shape = ", yRawClassFiltered.shape)
+
+	#collapse 2d list into 1d list
+	xRawClassFilteredList = [j for sub in xRawClassFilteredList for j in sub]
+	yRawClassFilteredList = [j for sub in yRawClassFilteredList for j in sub]		
+	xRawEqualised = np.array(xRawClassFilteredList)
+	yRawEqualised = np.array(yRawClassFilteredList)
+
+	#print("xRawEqualised = ", xRawEqualised)
+	#print("yRawEqualised = ", yRawEqualised)
+	
+	return xRawEqualised, yRawEqualised	
+
+def loadDatasetType3(datasetFileNameX, generatePOSunambiguousInput, onlyAddPOSunambiguousInputToTrain, limitSentenceLengthsSize, dataType=float, numberOfFeaturesPerWord=numberOfFeaturesPerWordPOStag):
 		
 	padExamples = True
 	cropExamples = True
 	if(cropExamples):
 		minimumSentenceLength = 3
-		if(useSmallSentenceLengths):
-			maximumSentenceLength = 30
-		else:	
-			maximumSentenceLength = 50
+		maximumSentenceLength = limitSentenceLengthsSize
 	else:
 		minimumSentenceLength = 0
-		maximumSentenceLength = 100
+		maximumSentenceLength = limitSentenceLengthsSize
 	maximumNumFeatures = maximumSentenceLength*numberOfFeaturesPerWord
 	minimumNumFeatures = minimumSentenceLength*numberOfFeaturesPerWord
 	generateNegativeExamples = False	#for backprop training
@@ -748,20 +785,9 @@ def generatePOSambiguityInfoUnambiguousPermutationArray(POSambiguityInfoUnambigu
 			generatePOSambiguityInfoUnambiguousPermutationArray(POSambiguityInfoUnambiguousPermutationArray, POSambiguityInfoPermutation, POSambiguityInfoUnambiguousPermutationLocal, wordIndex+1)
 
 
-#code moved from AEANNtf_main.py/AEANNtf_algorithmSequentialInput.py | ATNLPtf_normalisation.py;
-#should be defined as preprocessor defs (non-variable);
-NLPsequentialInputTypeCharacters = 0
-NLPsequentialInputTypeWords = 1
-NLPsequentialInputTypeSentences = 2
-NLPsequentialInputTypeParagraphs = 3	
-NLPsequentialInputTypeArticles = 4
-NLPsequentialInputTypes = ["characters", "words", "sentences", "paragraphs"]
-NLPsequentialInputNumberOfTypes = len(NLPsequentialInputTypes)
-wordVectorLibraryNumDimensions = 300	#https://spacy.io/models/en#en_core_web_md (300 dimensions)
-				
-				
-#useSmallSentenceLengths: eliminate smaller sentences from dataset (do not crop them)
-def loadDatasetType4(datasetFileNameX, NLPsequentialInputTypesMaxLength, useSmallSentenceLengths, NLPsequentialInputTypeTrainWordVectors):
+
+#limitSentenceLengths: eliminate smaller sentences from dataset (do not crop them)
+def loadDatasetType4(datasetFileNameX, limitSentenceLengths, limitSentenceLengthsSize, NLPsequentialInputTypeTrainWordVectors):
 	
 	splitTextDatasetByWikiTags = True
 	
@@ -793,9 +819,9 @@ def loadDatasetType4(datasetFileNameX, NLPsequentialInputTypesMaxLength, useSmal
 				#print("\t\t\tsentenceIndex = ", sentenceIndex)
 				wordsText = tokenize.word_tokenize(sentence)
 				sentenceLengthCheck = True
-				if(useSmallSentenceLengths):
-					if(len(wordsText) > NLPsequentialInputTypesMaxLength[NLPsequentialInputTypeWords]):
-						sentenceLengthCheck = False				
+				if(limitSentenceLengths):
+					if(len(wordsText) > limitSentenceLengthsSize):
+						sentenceLengthCheck = False			
 				if(sentenceLengthCheck):
 					if(NLPsequentialInputTypeTrainWordVectors):
 						words = []
@@ -810,7 +836,7 @@ def loadDatasetType4(datasetFileNameX, NLPsequentialInputTypesMaxLength, useSmal
 						sentence = words
 						sentences.append(sentence)
 					else:
-						#print("wordsText = ", wordsText)
+						print("wordsText = ", wordsText)
 						sentences.append(wordsText)
 			paragraphs.append(sentences)
 		articles.append(paragraphs)
@@ -819,56 +845,24 @@ def loadDatasetType4(datasetFileNameX, NLPsequentialInputTypesMaxLength, useSmal
 		
 	return articles
 
-	
-def equaliseClassExamples(xRaw, yRaw):
-
-	numberOfClasses = int(np.amax(yRaw))
-	#print("numberOfClasses = ", numberOfClasses)
-
-	veryLargeInt = 9999999
-	classIndexCountMin = 0	
-	classIndexCountMinValue = veryLargeInt
-	for classIndex in range(1, numberOfClasses+1):
-		classIndexCount = np.count_nonzero(yRaw == classIndex)
-		#print("classIndexCount = ", classIndexCount)
-		if(classIndexCount < classIndexCountMinValue):
-			classIndexCountMin = classIndex
-			classIndexCountMinValue = classIndexCount
-	#print("classIndexCountMin = ", classIndexCountMin)
-	#print("classIndexCountMinValue = ", classIndexCountMinValue)
-	
-	xRawClassFilteredList = []
-	yRawClassFilteredList = []
-	
-	for classIndex in range(1, numberOfClasses+1):
-		xRawClassFiltered, yRawClassFiltered = ANNtf2_operations.filterNParraysByClassTarget(xRaw, yRaw, classTargetFilterIndex=classIndex)
-		xRawClassFiltered = xRawClassFiltered[0:classIndexCountMinValue] 
-		yRawClassFiltered = yRawClassFiltered[0:classIndexCountMinValue]
-		xRawClassFilteredList.append(xRawClassFiltered)
-		yRawClassFilteredList.append(yRawClassFiltered)
-		#print("xRawClassFiltered.shape = ", xRawClassFiltered.shape)
-		#print("yRawClassFiltered.shape = ", yRawClassFiltered.shape)
-
-	#collapse 2d list into 1d list
-	xRawClassFilteredList = [j for sub in xRawClassFilteredList for j in sub]
-	yRawClassFilteredList = [j for sub in yRawClassFilteredList for j in sub]		
-	xRawEqualised = np.array(xRawClassFilteredList)
-	yRawEqualised = np.array(yRawClassFilteredList)
-
-	#print("xRawEqualised = ", xRawEqualised)
-	#print("yRawEqualised = ", yRawEqualised)
-	
-	return xRawEqualised, yRawEqualised
-
-
-
-def convertArticlesTreeToSentencesWordVectors(articles, NLPsequentialInputTypesMaxLength, numberOfFeaturesPerWord=wordVectorLibraryNumDimensions):
+#code moved from AEANNtf_main.py/AEANNtf_algorithmSequentialInput.py | ATNLPtf_normalisation.py;
+#should be defined as preprocessor defs (non-variable);
+NLPsequentialInputTypeCharacters = 0
+NLPsequentialInputTypeWords = 1
+NLPsequentialInputTypeSentences = 2
+NLPsequentialInputTypeParagraphs = 3	
+NLPsequentialInputTypeArticles = 4
+NLPsequentialInputTypes = ["characters", "words", "sentences", "paragraphs"]
+NLPsequentialInputNumberOfTypes = len(NLPsequentialInputTypes)
+wordVectorLibraryNumDimensions = 300	#https://spacy.io/models/en#en_core_web_md (300 dimensions)
+					
+def convertArticlesTreeToSentencesWordVectors(articles, limitSentenceLengthsSize, numberOfFeaturesPerWord=wordVectorLibraryNumDimensions):
 
 	dataType = float 	#mandatory
 	padExamples = True	#mandatory
 	cropExamples = True	#mandatory
 	minimumSentenceLength = 0
-	maximumSentenceLength = NLPsequentialInputTypesMaxLength[NLPsequentialInputTypeWords]
+	maximumSentenceLength = limitSentenceLengthsSize
 		
 	articles = flattenNestedListToSentences(articles)
 	sentenceListWordVectors = []
@@ -880,7 +874,7 @@ def convertArticlesTreeToSentencesWordVectors(articles, NLPsequentialInputTypesM
 		#print("inputVectorNP.shape = ", inputVectorNP.shape)
 		sentenceListWordVectors.append(inputVectorNP)
 	all_Xnormalised = np.asarray(sentenceListWordVectors)
-	#print("all_Xnormalised.shape = ", all_Xnormalised.shape)
+	#print("all_Xnormalised = ", all_Xnormalised)
 	print("all_Xnormalised.shape = ", all_Xnormalised.shape)
 	
 	datasetNumFeatures = all_Xnormalised.shape[1]/wordVectorLibraryNumDimensions
@@ -908,6 +902,7 @@ def flattenNestedListToSentences(articles):
 		#print("NLPsequentialInputTypeIndex = ", NLPsequentialInputTypeIndex)
 		flattenedList = []
 		for content in nestedList:
+			#print("content = ", content)
 			flattenedList.extend(content)
 		#print("flattenedList = ", flattenedList)
 		nestedList = flattenedList	#for recursion

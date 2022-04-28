@@ -222,7 +222,7 @@ def neuralNetworkPropagationSANI(x):
 					AfirstLayerShifted = x[:, w*numberOfFeaturesPerWord:w*numberOfFeaturesPerWord+inputLength]
 					tf.pad(AfirstLayerShifted, paddings, "CONSTANT")
 
-			#printShape(AfirstLayerShifted, "AfirstLayerShifted")
+			#print("AfirstLayerShifted = ", AfirstLayerShifted)
 
 			AfirstLayerShifted = tf.dtypes.cast(AfirstLayerShifted, tf.float32)	#added 01 Sept 2021 #convert input from int to float
 			A[generateParameterName(0, "A")] = AfirstLayerShifted
@@ -333,6 +333,8 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			if(printStatus):
 				pass
 				#print("VseqUpdated = ", VseqUpdated)
+				#print("ZseqUpdated = ", ZseqUpdated)
+				#print("AseqUpdated = ", AseqUpdated)
 				#print("ZseqPassThresold = ", ZseqPassThresold)
 				#print("ZseqCurrent = ", ZseqCurrent)
 				#print("VseqFloat = ", VseqFloat)
@@ -347,24 +349,24 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			if(performSummationOfSequentialInputs):
 				#these are all used for different methods of sequential input summation
 				if(performSummationOfSubInputsNonlinear):
-					AseqSum = tf.add(AseqSum, AseqCurrent)
+					AseqSum = tf.add(AseqSum, AseqUpdated)
 				else:
-					ZseqSum = tf.add(ZseqSum, ZseqCurrent)
+					ZseqSum = tf.add(ZseqSum, ZseqUpdated)
 				if(performSummationOfSequentialInputsWeighted):
 					multiples = tf.constant([batchSize,1], tf.int32)
 					Wtiled = tf.tile(tf.reshape(W[generateParameterName(l, "W")][s], [1, n_h[l]]), multiples)
 					if(performSummationOfSubInputsNonlinear):
-						AseqWeighted = tf.multiply(Aseq[generateParameterNameSeq(l, s, "Aseq")], Wtiled)
+						AseqWeighted = tf.multiply(AseqUpdated, Wtiled)
 						AseqWeightedSum = tf.math.add(AseqWeightedSum, AseqWeighted)	
 					else:
-						ZseqWeighted = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], Wtiled)
+						ZseqWeighted = tf.multiply(ZseqUpdated, Wtiled)
 						ZseqWeightedSum = tf.math.add(ZseqWeightedSum, ZseqWeighted)
 
 			if(s == numberOfSequentialInputs-1):
-				ZseqLast = Zseq[generateParameterNameSeq(l, s, "Zseq")]
-				AseqLast = Aseq[generateParameterNameSeq(l, s, "Aseq")]
-				VseqLast = Vseq[generateParameterNameSeq(l, s, "Vseq")]
-	
+				ZseqLast = ZseqUpdated
+				AseqLast = AseqUpdated
+				VseqLast = VseqUpdated
+					
 			VseqPrev = VseqUpdated
 			
 
@@ -384,7 +386,7 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			if(performSummationOfSequentialInputsNonlinear):
 				A1 = activationFunction(Z1)
 			else:
-				A1 = Z1		
+				A1 = Z1
 			#if(performSummationOfSequentialInputsVerify):
 			#	Z1 = tf.multiply(Z1, tf.dtypes.cast(VseqLast, tf.float32))
 			#	A1 = tf.multiply(A1, tf.dtypes.cast(VseqLast, tf.float32))	
@@ -393,6 +395,11 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			Z1 = ZseqLast
 			A1 = AseqLast
 
+		if(printStatus):
+			pass
+			#print("A1 = ", A1)
+			#print("Z1 = ", Z1)
+				
 		A[generateParameterName(l, "A")] = A1
 		Z[generateParameterName(l, "Z")] = Z1
 
@@ -401,7 +408,7 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 	ZlastLayer = Z[generateParameterName(numberOfLayers, "Z")]
 		
 	if(useLearningRuleBackpropagation):
-		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead)
+		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead, applySoftmax=(not vectorisedOutput))
 	else:
 		pred = ZlastLayer
 	

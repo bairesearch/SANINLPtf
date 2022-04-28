@@ -390,9 +390,9 @@ def neuralNetworkPropagationSANI(x):
 				#printAverage(Zseq[generateParameterNameSeq(l, s, "Zseq")], "Zseq", 3)
 
 				if(s == numberOfSequentialInputs-1):
-					ZseqLast = Zseq[generateParameterNameSeq(l, s, "Zseq")]
-					AseqLast = Aseq[generateParameterNameSeq(l, s, "Aseq")]
-					VseqLast = Vseq[generateParameterNameSeq(l, s, "Vseq")]
+					ZseqLast = ZseqUpdated
+					AseqLast = AseqUpdated
+					VseqLast = VseqUpdated
 					if(enforceTcontiguityConstraints):
 						TMaxSeqLast = TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")]
 						TMinSeqLast = TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")]

@@ -22,15 +22,24 @@ import numpy as np
 import ANNtf2_globalDefs
 
 #select algorithmSANI:
-#algorithmSANI = "sharedModulesNonContiguousFullConnectivity"
+algorithmSANI = "sharedModulesNonContiguousFullConnectivity"
 #algorithmSANI = "sharedModulesBinary"
-algorithmSANI = "sharedModules"
+#algorithmSANI = "sharedModules"
 #algorithmSANI = "repeatedModules"
 
+#select dataset:
+#dataset = "POStagSentence"
+#dataset = "POStagSequence"
+dataset = "wikiXmlDataset"	#high first hidden layer connectivity is required
+#SANItf2: dataset content requirements: require at least 2 sentences/sequences/sentences in data file
+
+#performance enhancements for development environment only: 
+debugUseSmallSequenceDataset = True	#def:False	#increases performance during development	#eg data-POStagSentence-smallBackup
+useSmallSentenceLengths = False	#def:False	#increases performance during development	#eg data-simple-POStagSentence-smallBackup
+debugFastTrain = False	#use batchSize=1	#NO: use small dataset with ~1 input
 
 #parameter configuration (all algorithmSANI):
 printStatus = True
-dataset = "POStagSentence"	#optional: POStagSentence or POStagSequence or wikiXmlDataset
 useLearningRuleBackpropagation = True	#optional (untested)
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	useTcontiguity = False	#mandatory false (not supported)
@@ -62,11 +71,16 @@ elif(algorithmSANI == "repeatedModules"):
 
 #POStagSequence dataset contains equal length input sequences, POStagSentence dataset contains arbitarily lengthed input sequences
 
-
+if(dataset == "wikiXmlDataset"):
+	vectorisedOutput = True	#word vector output
+else:
+	vectorisedOutput = False	#single/multi class output (one-hot encoded)
+	
+	
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	supportFullConnectivity = True	#mandatory - full connectivity between layers	
 	if(supportFullConnectivity):
-		useFullConnectivitySparsity = True	#sparsity is defined within fully connected weights	via highly nonlinear (+/- exp) weight initialisation function
+		useFullConnectivitySparsity = False	#sparsity is defined within fully connected weights	via highly nonlinear (+/- exp) weight initialisation function
 		supportFeedback = False	#optional 
 	useHebbianLearningRule = False
 elif(algorithmSANI == "sharedModulesBinary"):
@@ -94,7 +108,7 @@ if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	if(SANIsharedModules):
 		inputNumberFeaturesForCurrentWordOnly = True	#optional
 	else:
-		inputNumberFeaturesForCurrentWordOnly = False
+		inputNumberFeaturesForCurrentWordOnly = False	#mandatory
 elif(algorithmSANI == "sharedModulesBinary"):
 	if(useMultipleSubinputsPerSequentialInput):
 		allowMultipleSubinputsPerSequentialInput = True		#originally set as False

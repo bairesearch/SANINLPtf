@@ -440,21 +440,21 @@ def neuralNetworkPropagationSANI(x):
 							multiples = tf.constant([batchSize,1], tf.int32)
 							Wtiled = tf.tile(tf.reshape(W[generateParameterName(l, "W")][s], [1, n_h[l]]), multiples)
 							if(performSummationOfSubInputsNonlinear):
-								AseqWeighted = tf.multiply(Aseq[generateParameterNameSeq(l, s, "Aseq")], Wtiled)
+								AseqWeighted = tf.multiply(AseqUpdated, Wtiled)
 								AseqWeightedSum = tf.math.add(AseqWeightedSum, AseqWeighted)	
 							else:
-								ZseqWeighted = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], Wtiled)
+								ZseqWeighted = tf.multiply(ZseqUpdated, Wtiled)
 								ZseqWeightedSum = tf.math.add(ZseqWeightedSum, ZseqWeighted)
 						else:
 							if(performSummationOfSubInputsNonlinear):
 								AseqSum = tf.add(AseqSum, AseqUpdated)
 							else:
-								ZseqSum = tf.add(ZseqSum, ZseqUpdated)						
+								ZseqSum = tf.add(ZseqSum, ZseqUpdated)			
 
 				if(s == numberOfSequentialInputs-1):
-					ZseqLast = Zseq[generateParameterNameSeq(l, s, "Zseq")]
-					AseqLast = Aseq[generateParameterNameSeq(l, s, "Aseq")]
-					VseqLast = Vseq[generateParameterNameSeq(l, s, "Vseq")]
+					ZseqLast = ZseqUpdated
+					AseqLast = AseqUpdated
+					VseqLast = VseqUpdated
 					if(enforceTcontiguityConstraints):
 						TMaxSeqLast = TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")]
 						TMinSeqLast = TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")]
