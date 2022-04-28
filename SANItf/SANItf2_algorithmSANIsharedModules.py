@@ -212,7 +212,7 @@ def neuralNetworkPropagationSANI(x):
 	
 	#optimise feed length based on max sentence length in batch:
 	#unoptimised: numberOfFeatures = x.shape[1]
-	xIsNotPadding = tf.math.less(x, paddingTagIndex) #tf.math.less(tf.dtypes.cast(x, tf.int32), paddingTagIndex)
+	xIsNotPadding = tf.math.not_equal(x, tf.dtypes.cast(paddingTagIndex, tf.float64)) 
 	coordinatesOfNotPadding = tf.where(xIsNotPadding)
 	numberOfFeaturesCropped = tf.reduce_max(coordinatesOfNotPadding[:, 1]).numpy()+1
 	

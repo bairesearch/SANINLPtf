@@ -351,8 +351,8 @@ def trainMinimal():
 		shuffleSize = getShuffleSize(datasetNumExamples, batchSize)
 		trainDataIndex = 0
 
-		print("shuffleSize = ", shuffleSize)
-		print("batchSize = ", batchSize)
+		#print("shuffleSize = ", shuffleSize)
+		#print("batchSize = ", batchSize)
 		#print("train_x.shape = ", train_x.shape)
 		trainData = generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize)
 		trainDataList = []

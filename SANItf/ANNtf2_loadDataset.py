@@ -161,11 +161,10 @@ datasetType3alreadyNormalised = True	#if True, assume that the dataset includes 
 numberOfFeaturesPerWordPOStag = 53	#if dataset is POStagSequence/POStagSentence; numberOfFeaturesPerWord = numberOfFeaturesPerWordPOStag
 	#last feature identifies word as out of sentence padding (out of sentence padding is not expected by loadDatasetType3 as each row only contains data of a specific sentence length; out of sentence padding will be applied by ANNtf2_loadDataset after data is read)
 optimiseFeedLength = True
-if(optimiseFeedLength):
-	paddingTagIndex = 9	#out of sentence features will be padded with this value	#or -1 or 0
-	#paddingTagIndex implementation not currently robust for dataset="wikiXmlDataset" (loadDatasetType4/convertArticlesTreeToSentencesWordVectors) as wordVector components may sometimes express this special index when not out of sentence bounds
-else:
-	paddingTagIndex = 0
+#if(optimiseFeedLength):
+paddingTagIndex = 9	#out of sentence features will be padded with this value	#or -1 (0 is not acceptable as 0 is used to represent non POS-x values)
+paddingTagIndexVectorisedInput = 0		#paddingTagIndex implementation for dataset="wikiXmlDataset" (loadDatasetType4/convertArticlesTreeToSentencesWordVectors) special index represents an actual value in vector space	#note implementation not robust as wordVector components may sometimes express this special paddingTagIndex when not out of sentence bounds
+
 
 #"""**Please select both data files from local harddrive: XtrainBatchSmall.dat and YtrainBatchSmall.dat:**"""
 #
@@ -836,7 +835,7 @@ def loadDatasetType4(datasetFileNameX, limitSentenceLengths, limitSentenceLength
 						sentence = words
 						sentences.append(sentence)
 					else:
-						print("wordsText = ", wordsText)
+						#print("wordsText = ", wordsText)
 						sentences.append(wordsText)
 			paragraphs.append(sentences)
 		articles.append(paragraphs)
@@ -858,15 +857,18 @@ wordVectorLibraryNumDimensions = 300	#https://spacy.io/models/en#en_core_web_md 
 					
 def convertArticlesTreeToSentencesWordVectors(articles, limitSentenceLengthsSize, numberOfFeaturesPerWord=wordVectorLibraryNumDimensions):
 
+	paddingTagIndex = paddingTagIndexVectorisedInput
 	dataType = float 	#mandatory
 	padExamples = True	#mandatory
 	cropExamples = True	#mandatory
 	minimumSentenceLength = 0
 	maximumSentenceLength = limitSentenceLengthsSize
+	#print("limitSentenceLengthsSize = ", limitSentenceLengthsSize)
 		
 	articles = flattenNestedListToSentences(articles)
 	sentenceListWordVectors = []
-	for sentence in articles:	#sentence: is a list of words (strings)
+	for sentenceIndex, sentence in enumerate(articles):	#sentence: is a list of words (strings)
+		#print("sentenceIndex = ", sentenceIndex)
 		inputVectorList = generateWordVectorInputList(sentence, wordVectorLibraryNumDimensions)	#numberSequentialInputs x inputVecDimensions	#inputVectorList: is a list of numpy vectors
 		inputVectorList = cropAndPadWordVectorInputList(inputVectorList, maximumSentenceLength, paddingTagIndex, numberOfFeaturesPerWord, dataType)
 		inputVectorNP = np.asarray(inputVectorList)
@@ -892,7 +894,7 @@ def convertArticlesTreeToSentencesWordVectors(articles, limitSentenceLengthsSize
 	test_x = all_Xnormalised[-datasetNumExamplesTest:, :]
 	train_y = all_Ynormalised[0:datasetNumExamplesTrain]	#None
 	test_y = all_Ynormalised[-datasetNumExamplesTest:]	#None
-	
+		
 	return numberOfFeaturesPerWord, paddingTagIndex, datasetNumFeatures, datasetNumClasses, datasetNumExamples, train_x, train_y, test_x, test_y
 
 def flattenNestedListToSentences(articles):
@@ -928,11 +930,13 @@ def cropAndPadWordVectorInputList(inputVectorList, maximumSentenceLength, paddin
 	
 	inputVectorListLen = len(inputVectorList)
 	for i in range(maximumSentenceLength):
+		#print("i = ", i)
 		if(i < inputVectorListLen):
 			inputVectorListCroppedPadded.append(inputVectorList[i])
+			#print("inputVectorList[i] = ", inputVectorList[i])
 		else:
 			wordVectorPadding = np.full((numberOfFeaturesPerWord), paddingTagIndex, dtype=dataType)
-			#print("wordVectorPadding.shape = ", wordVectorPadding.shape)
+			#print("wordVectorPadding = ", wordVectorPadding)
 			inputVectorListCroppedPadded.append(wordVectorPadding)
 			
 	return inputVectorListCroppedPadded

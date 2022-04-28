@@ -190,7 +190,8 @@ def neuralNetworkPropagationSANI(x):
 	if(SANIsharedModules):	
 		#optimise feed length based on max sentence length in batch:
 		#unoptimised: numberOfFeatures = x.shape[1]
-		xIsNotPadding = tf.math.less(x, paddingTagIndex) #tf.math.less(tf.dtypes.cast(x, tf.int32), paddingTagIndex)
+		#print("x.dtype = ", x.dtype)
+		xIsNotPadding = tf.math.not_equal(x, tf.dtypes.cast(paddingTagIndex, tf.float64)) 
 		coordinatesOfNotPadding = tf.where(xIsNotPadding)
 		numberOfFeaturesCropped = tf.reduce_max(coordinatesOfNotPadding[:, 1]).numpy()+1
 
@@ -199,8 +200,16 @@ def neuralNetworkPropagationSANI(x):
 		else:
 			inputLength = numberOfFeaturesPerWord*numberOfWordsInConvolutionalWindowSeen
 			
-		maxNumberOfWordsInSentenceBatch = int(numberOfFeaturesCropped/numberOfFeaturesPerWord)
+		maxNumberOfWordsInSentenceBatch = numberOfFeaturesCropped//numberOfFeaturesPerWord
 
+		#print("x = ", x)
+		#print("paddingTagIndex = ", paddingTagIndex)
+		#print("xIsNotPadding = ", xIsNotPadding)		
+		#print("coordinatesOfNotPadding = ", coordinatesOfNotPadding)
+		#print("inputLength = ", inputLength)
+		#print("numberOfFeaturesCropped = ", numberOfFeaturesCropped)
+		print("maxNumberOfWordsInSentenceBatch = ", maxNumberOfWordsInSentenceBatch)
+		
 		#for w in range(maxNumberOfWordsInSentenceBatch):
 		#for w in range(0, 1):
 		for w in range(maxNumberOfWordsInSentenceBatch-numberOfWordsInConvolutionalWindowSeen+1):
@@ -223,7 +232,6 @@ def neuralNetworkPropagationSANI(x):
 					tf.pad(AfirstLayerShifted, paddings, "CONSTANT")
 
 			#print("AfirstLayerShifted = ", AfirstLayerShifted)
-
 			AfirstLayerShifted = tf.dtypes.cast(AfirstLayerShifted, tf.float32)	#added 01 Sept 2021 #convert input from int to float
 			A[generateParameterName(0, "A")] = AfirstLayerShifted
 			
@@ -244,6 +252,9 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 	
 	batchSize = AfirstLayer.shape[0]
 
+	#if(printStatus):
+		#print("AfirstLayer = ", AfirstLayer)
+			
 	for l in range(1, numberOfLayers+1):
 		
 		if(printStatus):
@@ -409,6 +420,8 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 		
 	if(useLearningRuleBackpropagation):
 		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead, applySoftmax=(not vectorisedOutput))
+		#if(printStatus):
+			#print("pred = ", pred)
 	else:
 		pred = ZlastLayer
 	

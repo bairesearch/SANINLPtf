@@ -72,8 +72,10 @@ elif(algorithmSANI == "repeatedModules"):
 #POStagSequence dataset contains equal length input sequences, POStagSentence dataset contains arbitarily lengthed input sequences
 
 if(dataset == "wikiXmlDataset"):
+	vectorisedInput = True	#word vector input
 	vectorisedOutput = True	#word vector output
 else:
+	vectorisedInput = False
 	vectorisedOutput = False	#single/multi class output (one-hot encoded)
 	
 	
