@@ -33,13 +33,16 @@ algorithmSANI = "sharedModulesNonContiguousFullConnectivity"
 dataset = "wikiXmlDataset"	#high first hidden layer connectivity is required
 #SANItf2: dataset content requirements: require at least 2 sentences/sequences/sentences in data file
 
-#performance enhancements for development environment only: 
+#performance test/enhancements for development environment only: 
+printGraphVisualisation = False	#tensorflow requires autograph compatible functions for visualisation (dynamic computational graphs defined through eager execution not supported)	#incomplete; requires to convert tensor dynamic initialisations to static initialisations via (unavailable) python preprocessor definitions
+printIO = False
+printStatus = False
 debugUseSmallSequenceDataset = True	#def:False	#increases performance during development	#eg data-POStagSentence-smallBackup
-useSmallSentenceLengths = False	#def:False	#increases performance during development	#eg data-simple-POStagSentence-smallBackup
+debugUseSmallSentenceLengths = False	#def:False	#increases performance during development	#eg data-simple-POStagSentence-smallBackup	#Preconditions: requires dataset with at least 2 sentences of size < limitSentenceLengthsSize; for test/train split
 debugFastTrain = False	#use batchSize=1	#NO: use small dataset with ~1 input
 
 #parameter configuration (all algorithmSANI):
-printStatus = True
+activationFunctionThreshold	= 0.0	#default: 0.0	#>=0: reduces probability of neural sequential input firing
 useLearningRuleBackpropagation = True	#optional (untested)
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	useTcontiguity = False	#mandatory false (not supported)
@@ -82,7 +85,9 @@ else:
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	supportFullConnectivity = True	#mandatory - full connectivity between layers	
 	if(supportFullConnectivity):
-		useFullConnectivitySparsity = False	#sparsity is defined within fully connected weights	via highly nonlinear (+/- exp) weight initialisation function
+		useFullConnectivitySparsity = True	#sparsity is defined by zeroing fully connected weights 
+		if(useFullConnectivitySparsity):
+			probabilityOfActiveConnection = 0.1	#1-sparsityLevel
 		supportFeedback = False	#optional 
 	useHebbianLearningRule = False
 elif(algorithmSANI == "sharedModulesBinary"):

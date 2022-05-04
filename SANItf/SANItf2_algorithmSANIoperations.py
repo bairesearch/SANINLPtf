@@ -62,17 +62,17 @@ def defineTrainingParametersSANI(dataset, trainMultipleFiles):
 		if(dataset == "wikiXmlDataset"):
 			#requires more memory
 			batchSize = 10
-			displayStep = 10
+			displayStep = 1
 		else:
 			batchSize = 100
-			displayStep = 100	
+			displayStep = 1	
 
 	return learningRate, trainingSteps, batchSize, displayStep, numEpochs
 			
 			
-def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord):
+def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord):
 	
-	#useSmallSentenceLengths not implemented
+	#debugUseSmallSentenceLengths not implemented
 
 	layerSizeMultiplier = numberOfFeaturesPerWord
 	if(dataset == "wikiXmlDataset"):
@@ -176,12 +176,13 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 						for s in range(numberOfSequentialInputs):
 							#print("\t\ts = " + str(s))
 							if(useFullConnectivitySparsity):
-								sparsityLevel = getSparsityLevelFullConnectivity(l1,l2,n_h)
-								WseqNP = np.random.exponential(scale=sparsityLevel, size=(n_h[l2], n_h[l1]))	#exp
-								WseqNPswitch = np.random.randint(2, size=(n_h[l2], n_h[l1]))	#0 or 1
-								WseqNPswitch = np.subtract(np.multiply(WseqNPswitch, 2), 1)	#-1 or 1
-								WseqNP = np.multiply(WseqNP, WseqNPswitch)	#randomly make exp negative
-								#print("WseqNPswitch = ", WseqNPswitch)
+								sparsityLevel = getSparsityLevelFullConnectivity(l1, l2, n_h)
+								probabilityUniform = np.random.uniform(low=0.0, high=1.0, size=(n_h[l2], n_h[l1]))	#0 to 1
+								sparsityPass = np.less(probabilityUniform, sparsityLevel)
+								sparsityPass = sparsityPass.astype(float)
+								WseqNP = np.random.normal(size=(n_h[l2], n_h[l1]))
+								WseqNP = np.multiply(WseqNP, sparsityPass)	#zero some weights
+								#print("sparsityPass = ", sparsityPass)
 								#print("WseqNP = ", WseqNP)
 							else:
 								WseqNP = np.random.normal(size=(n_h[l2], n_h[l1]))	#WseqNP = randomNormal([n_h[l2], n_h[l1]], dtype=tf.float32)
@@ -334,13 +335,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 
 def getSparsityLevelFullConnectivity(l, l2, n_h):
 	if(useFullConnectivitySparsity):
-		calibrationValue = 1.0 #exponential scale calibration factor - requires calibration
-		averageNumberNeuronsActivePerLayer = 1.0
-		sparsityLevel = averageNumberNeuronsActivePerLayer*calibrationValue	#assume ~1 input active per layer
-
-		#averageLayerActivationLevel = 1.0/(n_h[l]*n_h[l2]*numberOfSequentialInputs) * neuronActivationFiringThreshold
-		#sparsityLevel = averageLayerActivationLevel
-		sparsityLevel = 1.0
+		sparsityLevel = probabilityOfActiveConnection
 	else:
 		sparsityLevel = 1.0	#probability of initial strong neural connection per neuron in layer
 	

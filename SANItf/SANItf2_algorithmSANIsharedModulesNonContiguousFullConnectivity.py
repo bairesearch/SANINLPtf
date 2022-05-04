@@ -36,7 +36,7 @@ import ANNtf2_globalDefs
 
 
 #parameters
-#static parameters (convert from tf.variable to tf.constant?):
+#static parameters (convert to tf.constant?):
 Cseq = {}
 CseqLayer = {}	
 n_h_cumulative = {}
@@ -52,7 +52,7 @@ if(useLearningRuleBackpropagation):
 	Whead = [] #final linear layer weights matrix
 
 #parameters
-#static parameters (convert from tf.variable to tf.constant?):
+#static parameters (convert to tf.constant?):
 #if(not supportFullConnectivity):
 #	if(useSparseTensors):
 #		Cseq = {}	#connectivity vector
@@ -70,7 +70,7 @@ if(useLearningRuleBackpropagation):
 #		if(recordNeuronsWeighted):
 #			BR = {}	#biases vector
 #if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
-#	#variable parameters (tf.variable): 
+#	#variable parameters: 
 #	if(allowMultipleSubinputsPerSequentialInput):
 #		if(performSummationOfSubInputsWeighted):
 #			Wseq = {}	#weights matrix
@@ -94,10 +94,10 @@ def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddin
 	numberOfFeaturesPerWord = numberOfFeaturesPerWordNew
 	paddingTagIndex = paddingTagIndexNew
 
-def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord):
+def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord):
 	global n_h
 	global numberOfLayers
-	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord)
 	return numberOfLayers
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
@@ -120,7 +120,7 @@ if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	Aseq = {}
 	Z = {}
 	A = {}
-	sequentialActivationFound = {}	#CHECKTHIS: is this required?
+	#sequentialActivationFound = {}	#CHECKTHIS: is this required?
 	#if(useHebbianLearningRuleApply):
 	#	WseqDelta = {}	#prospective weights update
 
@@ -132,8 +132,8 @@ def neuralNetworkPropagation(x, networkIndex=None):
 
 def neuralNetworkPropagationSANI(x):
 	
-	#print("x = ", x)
-	
+	x = tf.dtypes.cast(x, tf.float32)
+
 	#print("x.shape = ", x.shape)	
 	
 	#note SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity does not use time/contiguity checks
@@ -170,14 +170,14 @@ def neuralNetworkPropagationSANI(x):
 				#ZseqSum	#(dim: batchSize*n_h[l])
 	
 	batchSize = x.shape[0]
-	
+
 	for l in range(1, numberOfLayers+1):
-		Z[generateParameterName(l, "Z")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
-		A[generateParameterName(l, "A")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
+		Z[generateParameterName(l, "Z")] = tf.zeros([batchSize, n_h[l]])
+		A[generateParameterName(l, "A")] = tf.zeros([batchSize, n_h[l]])
 		for s in range(numberOfSequentialInputs):
-			Vseq[generateParameterNameSeq(l, s, "Vseq")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool), dtype=tf.bool)
-			Zseq[generateParameterNameSeq(l, s, "Zseq")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
-			Aseq[generateParameterNameSeq(l, s, "Aseq")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
+			Vseq[generateParameterNameSeq(l, s, "Vseq")] = tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool)
+			Zseq[generateParameterNameSeq(l, s, "Zseq")] = tf.zeros([batchSize, n_h[l]])
+			Aseq[generateParameterNameSeq(l, s, "Aseq")] = tf.zeros([batchSize, n_h[l]])
 			
 			#if(useHebbianLearningRuleApply):
 			#	if(supportFeedback):
@@ -185,42 +185,47 @@ def neuralNetworkPropagationSANI(x):
 			#	else:
 			#		l2Max = l-1
 			#	for l2 in range(0, l2Max+1):
-			#		WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = tf.Variable(tf.zeros([n_h[l2], n_h[l]]), dtype=tf.float32)	
-					
+			#		WseqDelta[generateParameterNameSeqSkipLayers(l, l2, s, "WseqDelta")] = tf.zeros([n_h[l2], n_h[l]])
+			
+				
 	if(SANIsharedModules):	
 		#optimise feed length based on max sentence length in batch:
 		#unoptimised: numberOfFeatures = x.shape[1]
-		#print("x.dtype = ", x.dtype)
-		xIsNotPadding = tf.math.not_equal(x, tf.dtypes.cast(paddingTagIndex, tf.float64)) 
-		coordinatesOfNotPadding = tf.where(xIsNotPadding)
-		numberOfFeaturesCropped = tf.reduce_max(coordinatesOfNotPadding[:, 1]).numpy()+1
-
+		xIsNotPadding = tf.math.not_equal(x, tf.dtypes.cast(paddingTagIndex, tf.float32)) 
+		coordinatesOfNotPadding = tf.where(xIsNotPadding)		
+		numberOfFeaturesCropped = tf.reduce_max(coordinatesOfNotPadding[:, 1])
+		numberOfFeaturesCropped = tf.dtypes.cast(numberOfFeaturesCropped, tf.int32)
+		numberOfFeaturesCropped = tf.add(numberOfFeaturesCropped, 1)
+		maxNumberOfWordsInSentenceBatch = tf.divide(numberOfFeaturesCropped, numberOfFeaturesPerWord)
+		maxNumberOfWordsInSentenceBatch = tf.dtypes.cast(maxNumberOfWordsInSentenceBatch, tf.int32)
+		
 		if(inputNumberFeaturesForCurrentWordOnly):
 			inputLength = numberOfFeaturesPerWord
 		else:
 			inputLength = numberOfFeaturesPerWord*numberOfWordsInConvolutionalWindowSeen
 			
-		maxNumberOfWordsInSentenceBatch = numberOfFeaturesCropped//numberOfFeaturesPerWord
-
-		#print("x = ", x)
-		#print("paddingTagIndex = ", paddingTagIndex)
-		#print("xIsNotPadding = ", xIsNotPadding)		
-		#print("coordinatesOfNotPadding = ", coordinatesOfNotPadding)
-		#print("inputLength = ", inputLength)
-		#print("numberOfFeaturesCropped = ", numberOfFeaturesCropped)
 		print("maxNumberOfWordsInSentenceBatch = ", maxNumberOfWordsInSentenceBatch)
 		
-		#for w in range(maxNumberOfWordsInSentenceBatch):
-		#for w in range(0, 1):
-		for w in range(maxNumberOfWordsInSentenceBatch-numberOfWordsInConvolutionalWindowSeen+1):
+		if(useLearningRuleBackpropagation):
+			pred = tf.zeros([batchSize, Whead.shape[1]])
+		else:
+			pred = tf.zeros([batchSize, n_h[numberOfLayers]])
+
+		wMax = maxNumberOfWordsInSentenceBatch-numberOfWordsInConvolutionalWindowSeen+1
+		#print("wMax = ", wMax)
+
+		for w in range(wMax):
 
 			if(printStatus):
 				print("w =", w)
-			
-			for l in range(1, numberOfLayers+1):
-				sequentialActivationFound[generateParameterName(l, "sequentialActivationFound")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool), dtype=tf.bool)	#CHECKTHIS: is this required?
-			
+
+			#for l in range(1, numberOfLayers+1):
+			#	sequentialActivationFound[generateParameterName(l, "sequentialActivationFound")] = tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool)	#CHECKTHIS: is this required?
+
 			if(inputNumberFeaturesForCurrentWordOnly):
+				#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
+				#print("w = ", w)
+				#print("x = ", x)
 				AfirstLayerShifted = x[:, w*numberOfFeaturesPerWord:w*numberOfFeaturesPerWord+inputLength]
 			else:
 				if(w == 0):
@@ -234,10 +239,9 @@ def neuralNetworkPropagationSANI(x):
 			#print("AfirstLayerShifted = ", AfirstLayerShifted)
 			AfirstLayerShifted = tf.dtypes.cast(AfirstLayerShifted, tf.float32)	#added 01 Sept 2021 #convert input from int to float
 			A[generateParameterName(0, "A")] = AfirstLayerShifted
-			
+
 			pred = neuralNetworkPropagationSANIfeed(AfirstLayerShifted)
-			
-			#exit()
+	
 	else:
 		AfirstLayer = x
 		print("x = ", x.shape)
@@ -247,6 +251,8 @@ def neuralNetworkPropagationSANI(x):
 		pred = neuralNetworkPropagationSANIfeed(AfirstLayer)
 			
 	return pred
+	
+
 		
 def neuralNetworkPropagationSANIfeed(AfirstLayer):
 	
@@ -420,12 +426,13 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 		
 	if(useLearningRuleBackpropagation):
 		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead, applySoftmax=(not vectorisedOutput))
-		#if(printStatus):
-			#print("pred = ", pred)
+		if(printIO):
+			print("pred = ", pred)
 	else:
 		pred = ZlastLayer
 	
 	return pred
+
 
 def sequentialActivationFunction(Zseq):
 	#threshold output/check output threshold
@@ -442,6 +449,7 @@ def sequentialActivationFunction(Zseq):
 	return ZseqThresholded, ZseqPassThresold	
 		
 def activationFunction(Z):
+	Z = Z-activationFunctionThreshold
 	A = tf.nn.relu(Z)
 	#A = tf.nn.sigmoid(Z)
 	return A				
@@ -493,3 +501,7 @@ def recordActivity():
 	#			WseqUpdated = tf.add(Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")], WseqDeltaApplicable)
 	#			WseqUpdated = tf.clip_by_value(WseqUpdated, minimumConnectionWeight, maximumConnectionWeight)
 	#			Wseq[generateParameterNameSeqSkipLayers(l, l2, s2, "Wseq")] = WseqUpdated 
+
+
+
+

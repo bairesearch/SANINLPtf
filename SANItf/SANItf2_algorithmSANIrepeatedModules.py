@@ -30,7 +30,7 @@ import ANNtf2_globalDefs
 
 
 #parameters
-#static parameters (convert from tf.variable to tf.constant?):
+#static parameters (convert to tf.constant?):
 Cseq = {}
 CseqLayer = {}	
 n_h_cumulative = {}
@@ -46,7 +46,7 @@ if(useLearningRuleBackpropagation):
 	Whead = [] #final linear layer weights matrix
 
 #parameters
-#static parameters (convert from tf.variable to tf.constant?):
+#static parameters (convert to tf.constant?):
 #if(not supportFullConnectivity):
 #	if(useSparseTensors):
 #		Cseq = {}	#connectivity vector
@@ -64,7 +64,7 @@ if(useLearningRuleBackpropagation):
 #		if(recordNeuronsWeighted):
 #			BR = {}	#biases vector
 #if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
-#	#variable parameters (tf.variable): 
+#	#variable parameters: 
 #	if(allowMultipleSubinputsPerSequentialInput):
 #		if(performSummationOfSubInputsWeighted):
 #			Wseq = {}	#weights matrix
@@ -88,10 +88,10 @@ def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddin
 	numberOfFeaturesPerWord = numberOfFeaturesPerWordNew
 	paddingTagIndex = paddingTagIndexNew
 
-def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord):
+def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord):
 	global n_h
 	global numberOfLayers
-	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord)
 	return numberOfLayers
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
@@ -118,7 +118,9 @@ def neuralNetworkPropagation(x, networkIndex=None):
 	return neuralNetworkPropagationSANI(x)
 	
 def neuralNetworkPropagationSANI(x):
-		
+	
+	x = tf.dtypes.cast(x, tf.float32)
+	
 	batchSize = x.shape[0]
 
 	#note connectivity indexes are used rather than sparse weight matrices due to limitations in current tf2 sparse tensor implementation

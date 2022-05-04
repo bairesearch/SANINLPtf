@@ -806,6 +806,8 @@ def loadDatasetType4(datasetFileNameX, limitSentenceLengths, limitSentenceLength
 		articlesText = []
 		articlesText.append(text)
 		
+	foundValidSentences = False
+	
 	for articleIndex, article in enumerate(articlesText):
 		#print("\tarticleIndex = ", articleIndex)
 		paragraphsText = article.split('\n\n')
@@ -835,10 +837,15 @@ def loadDatasetType4(datasetFileNameX, limitSentenceLengths, limitSentenceLength
 						sentence = words
 						sentences.append(sentence)
 					else:
+						foundValidSentences = True
 						#print("wordsText = ", wordsText)
 						sentences.append(wordsText)
 			paragraphs.append(sentences)
 		articles.append(paragraphs)
+		
+	if(not foundValidSentences):
+		print("loadDatasetType4 error: !foundValidSentences - require dataset with at least 2 sentences of size < limitSentenceLengthsSize; for test/train split")
+		exit(0)
 		
 	#print("articles = ", articles)
 		
@@ -878,6 +885,8 @@ def convertArticlesTreeToSentencesWordVectors(articles, limitSentenceLengthsSize
 	all_Xnormalised = np.asarray(sentenceListWordVectors)
 	#print("all_Xnormalised = ", all_Xnormalised)
 	print("all_Xnormalised.shape = ", all_Xnormalised.shape)
+	
+	print("wordVectorLibraryNumDimensions = ", wordVectorLibraryNumDimensions)
 	
 	datasetNumFeatures = all_Xnormalised.shape[1]/wordVectorLibraryNumDimensions
 	datasetNumClasses = -1

@@ -12,7 +12,6 @@ Python 3 and Tensorflow 2.1+
 conda create -n anntf2 python=3.7
 source activate anntf2
 conda install -c tensorflow tensorflow=2.3
-conda install scikit-learn (SANItf2_algorithmLIANN_PCAsimulation only)
 	
 # Usage:
 python3 SANItf2.py
@@ -39,6 +38,11 @@ import ANNtf2_loadDataset
 from SANItf2_algorithmSANIglobalDefs import algorithmSANI
 import SANItf2_algorithmSANIglobalDefs
 
+if(SANItf2_algorithmSANIglobalDefs.printGraphVisualisation):
+	#tf.config.run_functions_eagerly(True)	#not supported by tensorflow graph construction
+	tf.get_logger().setLevel('ERROR')	#WARNING:tensorflow:From /.../python3.7/site-packages/tensorflow/python/ops/summary_ops_v2.py:1203: start (from tensorflow.python.eager.profiler) is deprecated and will be removed after 2020-07-01
+	graphVisualisationFolder = 'summaries'
+	
 #select algorithm:
 algorithm = "SANI"	#sequentially activated neuronal input artificial neural network	#incomplete+non-convergent
 
@@ -71,7 +75,7 @@ numberOfNetworks = 1
 
 if(trainMultipleFiles):
 	fileIndexFirst = 0
-	if(SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths):
+	if(SANItf2_algorithmSANIglobalDefs.debugUseSmallSentenceLengths):
 		fileIndexLast = 11
 	else:
 		fileIndexLast = 1202
@@ -83,8 +87,8 @@ if(trainMultipleFiles):
 
 limitSentenceLengths = True	#mandatory
 if(limitSentenceLengths):
-	if(SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths): 
-		limitSentenceLengthsSize = 30
+	if(SANItf2_algorithmSANIglobalDefs.debugUseSmallSentenceLengths): 
+		limitSentenceLengthsSize = 10	#or 30
 	else:
 		limitSentenceLengthsSize = 100	#or 50
 	
@@ -139,8 +143,8 @@ def defineTrainingParameters(dataset, numberOfFeaturesPerWord=None, paddingTagIn
 	SANItf2_algorithm.defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWord, paddingTagIndex)
 	return SANItf2_algorithm.defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles)
 
-def defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, useSmallSentenceLengths=None, numberOfFeaturesPerWord=None):
-	return SANItf2_algorithm.defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+def defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, debugUseSmallSentenceLengths=None, numberOfFeaturesPerWord=None):
+	return SANItf2_algorithm.defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord)
 
 def defineNeuralNetworkParameters():
 	return SANItf2_algorithm.defineNeuralNetworkParameters()
@@ -152,22 +156,24 @@ def neuralNetworkPropagationTest(test_x, networkIndex=1):
 #define default forward prop function for backprop weights optimisation;
 def neuralNetworkPropagation(x, networkIndex=1, l=None):
 	return SANItf2_algorithm.neuralNetworkPropagation(x, networkIndex)
+	
+#if(SANItf2_algorithmSANIglobalDefs.printGraphVisualisation):
+@tf.function
+def neuralNetworkPropagationGraph(x, networkIndex=1, l=None):
+	return SANItf2_algorithm.neuralNetworkPropagation(x, networkIndex)
 
+
+summary_writer = None
 
 def trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex, costCrossEntropyWithLogits, display):
+
 	if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
 		#untested;
 		if(generateSequenceNextWordPredictionTargets):
 			#generate batchY based on nextWord in sequence
-			#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
-			#print("batchX.shape[1] = ", batchX.shape[1])
 			num_input_neurons = batchX.shape[1]
 			numberOfWordsInConvolutionalWindowSeen = SANItf2_algorithmSANIglobalDefs.getNumberOfWordsInConvolutionalWindowSeenFromDatasetPOStagSequence(dataset, num_input_neurons, numberOfFeaturesPerWord)
-			#print("numberOfWordsInConvolutionalWindowSeen = ", numberOfWordsInConvolutionalWindowSeen)
 			maximumSentenceWord = num_input_neurons//numberOfFeaturesPerWord - numberOfWordsInConvolutionalWindowSeen
-			#paddingCharacter = str(paddingTagIndex)[0]
-			#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
-			#print("maximumSentenceWord = ", maximumSentenceWord)
 			for w in range(0, maximumSentenceWord):
 				if(SANItf2_algorithmSANIglobalDefs.SANIsharedModules):
 					firstWordIndex = 0
@@ -176,32 +182,32 @@ def trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, op
 				nextWordFeatureIndex = (w+numberOfWordsInConvolutionalWindowSeen)*numberOfFeaturesPerWord				
 				batchXsubset = batchX[:, firstWordIndex:nextWordFeatureIndex]
 				batchYsubset = batchX[:, nextWordFeatureIndex:nextWordFeatureIndex+numberOfFeaturesPerWord]					
-				#print("batchX.shape = ", batchX.shape)
-				#print("nextWordFeatureIndex = ", nextWordFeatureIndex)
-				#print("numberOfFeaturesPerWord = ", numberOfFeaturesPerWord)
 				print("batchXsubset.shape = ", batchXsubset.shape)
 				print("batchYsubset.shape = ", batchYsubset.shape)
-				#print("numberOfLayers = ", numberOfLayers)
-				executeOptimisation(batchXsubset, batchYsubset, datasetNumClasses, numberOfLayers, optimizer, networkIndex)	
+				if(SANItf2_algorithmSANIglobalDefs.printIO):
+					print("batchXsubset = ", batchXsubset)
+					print("batchYsubset = ", batchYsubset)
+									
+				loss, acc = executeOptimisation(batchIndex, batchXsubset, batchYsubset, datasetNumClasses, numberOfLayers, optimizer, networkIndex)
+
 				if(display):
-					loss, acc = calculatePropagationLoss(batchXsubset, batchYsubset, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex)
 					print("networkIndex: %i, batchIndex: %i, loss: %f, accuracy: %f" % (networkIndex, batchIndex, loss, acc))
 		else:
-			executeOptimisation(batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex)	
+			loss, acc = executeOptimisation(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex)	
 			if(display):
-				loss, acc = calculatePropagationLoss(batchX, batchY, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex)
 				print("networkIndex: %i, batchIndex: %i, loss: %f, accuracy: %f" % (networkIndex, batchIndex, loss, acc))
 	else:
 		#learning algorithm not yet implemented:
 		#if(batchSize > 1):
 		pred = neuralNetworkPropagation(batchX)	
-		print("pred = ", pred)		
+		print("pred = ", pred)	
 
-	
-def executeOptimisation(x, y, datasetNumClasses, numberOfLayers, optimizer, networkIndex=1):
+
+def executeOptimisation(batchIndex, x, y, datasetNumClasses, numberOfLayers, optimizer, networkIndex=1):
+
 	with tf.GradientTape() as gt:
-		loss, acc = calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex)
-		
+		loss, acc = calculatePropagationLoss(batchIndex, x, y, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex)
+
 	Wlist = []
 	Blist = []
 	Wseqlist = []
@@ -240,10 +246,18 @@ def executeOptimisation(x, y, datasetNumClasses, numberOfLayers, optimizer, netw
 			])
 	else:
 		optimizer.apply_gradients(zip(gradients, trainableVariables))
+
+	return loss, acc
 	
-def calculatePropagationLoss(x, y, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex=1):
+		
+def calculatePropagationLoss(batchIndex, x, y, datasetNumClasses, numberOfLayers, costCrossEntropyWithLogits, networkIndex=1):
 	acc = 0	#only valid for softmax class targets 
-	pred = neuralNetworkPropagation(x, networkIndex)
+	
+	if(SANItf2_algorithmSANIglobalDefs.printGraphVisualisation):
+		pred = neuralNetworkPropagationGraphPrint(batchIndex, x, networkIndex)	
+	else:
+		pred = neuralNetworkPropagation(x, networkIndex)
+				
 	target = y 
 	#print("pred = ", pred.shape) 
 	#print("target = ", target.shape) 
@@ -335,7 +349,7 @@ def trainMinimal():
 	num_output_neurons = datasetNumClasses
 
 	learningRate, trainingSteps, batchSize, displayStep, numEpochs = defineTrainingParameters(dataset, numberOfFeaturesPerWord, paddingTagIndex)
-	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths, numberOfFeaturesPerWord)
+	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, SANItf2_algorithmSANIglobalDefs.debugUseSmallSentenceLengths, numberOfFeaturesPerWord)
 	defineNeuralNetworkParameters()
 														
 	#stochastic gradient descent optimizer
@@ -389,7 +403,7 @@ def train(trainMultipleNetworks=False, trainMultipleFiles=False, greedy=False):
 	num_output_neurons = datasetNumClasses
 
 	learningRate, trainingSteps, batchSize, displayStep, numEpochs = defineTrainingParameters(dataset, numberOfFeaturesPerWord, paddingTagIndex)
-	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, SANItf2_algorithmSANIglobalDefs.useSmallSentenceLengths, numberOfFeaturesPerWord)
+	numberOfLayers = defineNetworkParameters(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, numberOfNetworks, SANItf2_algorithmSANIglobalDefs.debugUseSmallSentenceLengths, numberOfFeaturesPerWord)
 	defineNeuralNetworkParameters()
 
 	#configure optional parameters;
@@ -487,7 +501,24 @@ def getShuffleSize(datasetNumExamples, batchSize):
 	#shuffleSize = min(datasetNumExamples, batchSize)	#heuristic: 10*batchSize
 	shuffleSize = datasetNumExamples
 	return shuffleSize
-				
+
+#developmental;
+def neuralNetworkPropagationGraphPrint(batchIndex, x, networkIndex=1):
+	summary_writer = tf.summary.create_file_writer(graphVisualisationFolder)
+	tf.summary.trace_on(graph=True, profiler=True)	   #tf.summary.trace_on(graph=True)
+
+	pred = neuralNetworkPropagationGraph(x, networkIndex)
+	with summary_writer.as_default():
+		tf.summary.trace_export(name="executeOptimisation_trace", step=batchIndex, profiler_outdir=graphVisualisationFolder)
+
+	#summary_writer.flush()
+	print("printGraphVisualisation: neuralNetworkPropagationGraphPrint")
+	print("execute this: tensorboard --logdir=" + graphVisualisationFolder + " --host localhost --port 8088")
+	print("then open http://localhost:8088/ with webbrowser")
+	exit()
+	
+	return pred
+					
 if __name__ == "__main__":
 	if(algorithm == "SANI"):
 		if(trainMultipleFiles):

@@ -33,7 +33,7 @@ import ANNtf2_globalDefs
 
 
 #parameters
-#static parameters (convert from tf.variable to tf.constant?):
+#static parameters (convert to tf.constant?):
 Cseq = {}
 CseqLayer = {}	
 n_h_cumulative = {}
@@ -49,7 +49,7 @@ if(useLearningRuleBackpropagation):
 	Whead = [] #final linear layer weights matrix
 
 #parameters
-#static parameters (convert from tf.variable to tf.constant?):
+#static parameters (convert to tf.constant?):
 #if(not supportFullConnectivity):
 #	if(useSparseTensors):
 #		Cseq = {}	#connectivity vector
@@ -67,7 +67,7 @@ if(useLearningRuleBackpropagation):
 #		if(recordNeuronsWeighted):
 #			BR = {}	#biases vector
 #if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
-#	#variable parameters (tf.variable): 
+#	#variable parameters: 
 #	if(allowMultipleSubinputsPerSequentialInput):
 #		if(performSummationOfSubInputsWeighted):
 #			Wseq = {}	#weights matrix
@@ -91,10 +91,10 @@ def defineTrainingParametersSANIsharedModules(numberOfFeaturesPerWordNew, paddin
 	numberOfFeaturesPerWord = numberOfFeaturesPerWordNew
 	paddingTagIndex = paddingTagIndexNew
 
-def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord):
+def defineNetworkParametersSANIwrapper(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord):
 	global n_h
 	global numberOfLayers
-	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, useSmallSentenceLengths, numberOfFeaturesPerWord)
+	n_h, numberOfLayers = SANItf2_algorithmSANIoperations.defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord)
 	return numberOfLayers
 	
 def defineTrainingParametersSANIwrapper(dataset, trainMultipleFiles):
@@ -134,6 +134,8 @@ def neuralNetworkPropagation(x, networkIndex=None):
 	return neuralNetworkPropagationSANI(x)
 	
 def neuralNetworkPropagationSANI(x):
+
+	x = tf.dtypes.cast(x, tf.float32)
 		
 	#note connectivity indexes are used rather than sparse weight matrices due to limitations in current tf2 sparse tensor implementation
 	
@@ -209,47 +211,50 @@ def neuralNetworkPropagationSANI(x):
 	
 	
 	batchSize = x.shape[0]
-	
+		
 	#optimise feed length based on max sentence length in batch:
 	#unoptimised: numberOfFeatures = x.shape[1]
-	xIsNotPadding = tf.math.not_equal(x, tf.dtypes.cast(paddingTagIndex, tf.float64)) 
+	xIsNotPadding = tf.math.not_equal(x, tf.dtypes.cast(paddingTagIndex, tf.float32)) 
 	coordinatesOfNotPadding = tf.where(xIsNotPadding)
-	numberOfFeaturesCropped = tf.reduce_max(coordinatesOfNotPadding[:, 1]).numpy()+1
-	
+	numberOfFeaturesCropped = tf.reduce_max(coordinatesOfNotPadding[:, 1])
+	numberOfFeaturesCropped = tf.dtypes.cast(numberOfFeaturesCropped, tf.int32)
+	numberOfFeaturesCropped = tf.add(numberOfFeaturesCropped, 1)
+	maxNumberOfWordsInSentenceBatch = tf.divide(numberOfFeaturesCropped, numberOfFeaturesPerWord)
+	maxNumberOfWordsInSentenceBatch = tf.dtypes.cast(maxNumberOfWordsInSentenceBatch, tf.int32)
+
 	inputLength = numberOfFeaturesPerWord*numberOfWordsInConvolutionalWindowSeen
 	
-	maxNumberOfWordsInSentenceBatch = int(numberOfFeaturesCropped/numberOfFeaturesPerWord)
-	
 	for l in range(1, numberOfLayers+1):
-		Z[generateParameterName(l, "Z")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
-		A[generateParameterName(l, "A")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
+		Z[generateParameterName(l, "Z")] = tf.zeros([batchSize, n_h[l]])
+		A[generateParameterName(l, "A")] = tf.zeros([batchSize, n_h[l]])
 		if(enforceTcontiguityConstraints):
-			TMax[generateParameterName(l, "TMax")] = tf.Variable(tf.zeros([batchSize, n_h[l]], dtype=tf.int32))
-			TMin[generateParameterName(l, "TMin")] = tf.Variable(tf.zeros([batchSize, n_h[l]], dtype=tf.int32))
+			TMax[generateParameterName(l, "TMax")] = tf.zeros([batchSize, n_h[l]], dtype=tf.int32)
+			TMin[generateParameterName(l, "TMin")] = tf.zeros([batchSize, n_h[l]], dtype=tf.int32)
 		for s in range(numberOfSequentialInputs):
-			Vseq[generateParameterNameSeq(l, s, "Vseq")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool), dtype=tf.bool)
-			Zseq[generateParameterNameSeq(l, s, "Zseq")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
-			Aseq[generateParameterNameSeq(l, s, "Aseq")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
+			Vseq[generateParameterNameSeq(l, s, "Vseq")] = tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool)
+			Zseq[generateParameterNameSeq(l, s, "Zseq")] = tf.zeros([batchSize, n_h[l]])
+			Aseq[generateParameterNameSeq(l, s, "Aseq")] = tf.zeros([batchSize, n_h[l]])
 			if(enforceTcontiguityConstraints):
-				TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")] = tf.Variable(tf.zeros([batchSize, n_h[l]], dtype=tf.int32))
-				TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")] = tf.Variable(tf.zeros([batchSize, n_h[l]], dtype=tf.int32))
+				TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")] = tf.zeros([batchSize, n_h[l]], dtype=tf.int32)
+				TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")] = tf.zeros([batchSize, n_h[l]], dtype=tf.int32)
 				if(allowMultipleContributingSubinputsPerSequentialInput):
 					if((resetSequentialInputsIfOnlyFirstInputValid) and (s == 0)):
-						ZseqTadjusted[generateParameterNameSeq(l, s, "ZseqTadjusted")] = tf.Variable(tf.zeros([batchSize, n_h[l]]), dtype=tf.float32)
+						ZseqTadjusted[generateParameterNameSeq(l, s, "ZseqTadjusted")] = tf.zeros([batchSize, n_h[l]])
 			if(recordNetworkWeights):
 				if(recordSubInputsWeighted):
 					numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInput(s)
-					AseqInputVerified[generateParameterNameSeq(l, s, "AseqInputVerified")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, numberSubinputsPerSequentialInput, n_h[l]]), dtype=tf.bool), dtype=tf.bool)
-				
-	#for w in range(maxNumberOfWordsInSentenceBatch):
-	#for w in range(0, 1):
-	for w in range(maxNumberOfWordsInSentenceBatch-numberOfWordsInConvolutionalWindowSeen+1):
+					AseqInputVerified[generateParameterNameSeq(l, s, "AseqInputVerified")] = tf.dtypes.cast(tf.zeros([batchSize, numberSubinputsPerSequentialInput, n_h[l]]), dtype=tf.bool)
+		
+	wMax = maxNumberOfWordsInSentenceBatch-numberOfWordsInConvolutionalWindowSeen+1	#maxNumberOfWordsInSentenceBatch	#range(0, 1)
+	#print("wMax = ", wMax)
+
+	for w in range(wMax):
 	
 		if(printStatus):
 			print("w = " + str(w))
 		
 		for l in range(1, numberOfLayers+1):
-			sequentialActivationFound[generateParameterName(l, "sequentialActivationFound")] = tf.Variable(tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool), dtype=tf.bool)
+			sequentialActivationFound[generateParameterName(l, "sequentialActivationFound")] = tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), tf.bool)
 
 		if(w == 0):
 			AfirstLayerShifted = x[:, 0:inputLength]
@@ -264,11 +269,13 @@ def neuralNetworkPropagationSANI(x):
 		#print("AfirstLayerShifted = ", AfirstLayerShifted)
 			
 		#printShape(AfirstLayerShifted, "AfirstLayerShifted")
+
+		#print("AfirstLayerShifted = ", AfirstLayerShifted)
 			
 		AprevLayer = AfirstLayerShifted
 		
 		if(enforceTcontiguityConstraints):
-			TMinPrevLayerAll, TMaxPrevLayerAll = TcontiguityInitialiseTemporaryVars(w)
+			TMinPrevLayer, TMaxPrevLayer = TcontiguityInitialiseTemporaryVars(w)
 		
 		for l in range(1, numberOfLayers+1):	#start algorithm at n_h[1]; ie first hidden layer
 
@@ -300,7 +307,15 @@ def neuralNetworkPropagationSANI(x):
 					else:
 						ZseqSum = tf.zeros([batchSize, n_h[l]], tf.float32)
 
-			
+			if(printGraphVisualisation):
+				#initialisations required for autograph;
+				VseqLast = tf.zeros(Vseq[generateParameterNameSeq(l, 0, "Vseq")].shape, dtype=tf.bool)
+				ZseqLast = tf.zeros(Zseq[generateParameterNameSeq(l, 0, "Zseq")].shape)
+				AseqLast = tf.zeros(Aseq[generateParameterNameSeq(l, 0, "Aseq")].shape)
+				if(enforceTcontiguityConstraints):
+					TMaxSeqLast = tf.zeros(TMaxSeq[generateParameterNameSeq(l, 0, "TMaxSeq")].shape, dtype=tf.int32)
+					TMinSeqLast = tf.zeros(TMinSeq[generateParameterNameSeq(l, 0, "TMinSeq")].shape, dtype=tf.int32)
+
 			for sForward in range(numberOfSequentialInputs):
 				sReverse = numberOfSequentialInputs-sForward-1	
 				s = sReverse
@@ -502,6 +517,8 @@ def neuralNetworkPropagationSANI(x):
 	
 	if(useLearningRuleBackpropagation):
 		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead)
+		if(printIO):
+			print("pred = ", pred)
 	else:
 		if(enforceTcontiguityConstraints):
 			ZlastLayer = TcontiguityCalculateOutput(ZlastLayer)
