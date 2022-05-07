@@ -323,6 +323,7 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 				VseqPrevTest = VseqPrev
 				#note SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity does not use time/word index contiguity checks
 				VseqExisting = VseqPrevTest	#if previous sequentiality check fails, then all future sequentiality checks must fail	
+				#note SANItf2_algorithmSANIsharedModulesNonContiguousFullConnectivity will overwrite any existing activations (no reset condition)
 			
 			VseqFloat = tf.dtypes.cast(VseqExisting, tf.float32)
 						
@@ -338,10 +339,12 @@ def neuralNetworkPropagationSANIfeed(AfirstLayer):
 			ZseqPassThresoldNotInt = tf.dtypes.cast(ZseqPassThresoldNot, tf.int32)
 
 			#calculate updated Vseq/Zseq/Aseq activation matrix taking into account previously activated sectors (batchIndices, neurons):
-			VseqUpdated = tf.math.logical_and(ZseqPassThresold, VseqExisting)
-			VseqUpdated = tf.math.logical_or(Vseq[generateParameterNameSeq(l, s, "Vseq")], VseqUpdated)	
-			ZseqUpdated = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))	#zero all Zseq sectors (batchIndices, neurons) which pass threshold; prepare for addition	
-			ZseqUpdated = tf.add(ZseqUpdated, ZseqCurrent)
+			#VseqUpdated = tf.math.logical_and(ZseqPassThresold, VseqExisting)	#not required (ZseqPassThresold already has had VseqExisting applied, and will be combined with Vseq[])
+			VseqExistingOld = tf.multiply(tf.dtypes.cast(Vseq[generateParameterNameSeq(l, s, "Vseq")], tf.float32), tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))	#zero all Vseq sectors (batchIndices, neurons) which pass threshold; prepare for addition
+			VseqUpdated = SANItf2_algorithmSANIoperations.updateTensorCells(VseqExistingOld, tf.cast(ZseqPassThresold, tf.float32))	#VseqUpdated = tf.math.logical_or(Vseq[generateParameterNameSeq(l, s, "Vseq")], VseqUpdated)	
+			VseqUpdated = tf.cast(VseqUpdated, tf.bool)
+			ZseqExistingOld = tf.multiply(Zseq[generateParameterNameSeq(l, s, "Zseq")], tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))	#zero all Zseq sectors (batchIndices, neurons) which pass threshold; prepare for addition	
+			ZseqUpdated = SANItf2_algorithmSANIoperations.updateTensorCells(ZseqExistingOld, ZseqCurrent)	#tf.add(ZseqExistingOld, ZseqCurrent)
 			AseqUpdated, _ = sequentialActivationFunction(ZseqUpdated)
 			#OLD:	#VseqUpdated = tf.math.logical_and(ZseqPassThresold, VseqExisting)	#ZseqUpdated = ZseqCurrent	#AseqUpdated = AseqCurrent
 			

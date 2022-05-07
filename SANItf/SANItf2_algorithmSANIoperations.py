@@ -360,3 +360,18 @@ def calculateNumberSubinputsPerSequentialInputSparseTensors(s):
 		
 	return numberSubinputsPerSequentialInput
 	
+
+def updateTensorCells(tensorOrig, tensorUpdatesNonZero):
+
+	#print("tensorOrig = ", tensorOrig)
+	#print("tensorUpdatesNonZero = ", tensorUpdatesNonZero)
+
+	indices = tf.where(tensorUpdatesNonZero)
+	#print("indices = ", indices)
+	data = tf.gather_nd(tensorUpdatesNonZero, indices)
+	#print("data = ", data)
+	
+	tensorMod = tf.tensor_scatter_nd_update(tensorOrig, indices, data)
+	#print("tensorMod = ", tensorMod)
+	
+	return tensorMod

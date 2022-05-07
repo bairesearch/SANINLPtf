@@ -334,7 +334,7 @@ def neuralNetworkPropagationSANI(x):
 				#calculate output for layer sequential input s
 
 				if(enforceTcontiguityConstraints):
-					AseqInput = TcontiguitySequentialInputConstrainAseqInput(l, s, AseqInput, TMinSeqInput, TMaxSeqInput)
+					AseqInput, TMinSeqInputThresholded, TMaxSeqInputThresholded = TcontiguitySequentialInputConstrainAseqInput(l, s, AseqInput, TMinSeqInput, TMaxSeqInput)
 				
 				#printAverage(AseqInputTthresholded, "AseqInputTthresholded", 3)	
 				#if(enforceTcontiguityConstraints):		
@@ -362,7 +362,11 @@ def neuralNetworkPropagationSANI(x):
 				_, ZseqPassThresold = sequentialActivationFunction(ZseqHypothetical)
 				
 				if(enforceTcontiguityConstraints):
-					TcontiguityUpdateArrays(l, s, ZseqPassThresold)
+					TcontiguityUpdateArrays(l, s, ZseqPassThresold, TMaxSeqInputThresholded, TMinSeqInputThresholded)
+
+				ZseqPassThresoldInt = tf.dtypes.cast(ZseqPassThresold, tf.int32)
+				ZseqPassThresoldNot = tf.math.logical_not(ZseqPassThresold)
+				ZseqPassThresoldNotInt = tf.dtypes.cast(ZseqPassThresoldNot, tf.int32)
 															
 				#reset appropriate neurons
 				if((resetSequentialInputs) and (s == 0)):
@@ -389,8 +393,12 @@ def neuralNetworkPropagationSANI(x):
 							TMin[generateParameterName(l, "TMin")] = tf.multiply(TMin[generateParameterName(l, "TMin")], tf.dtypes.cast(tf.math.logical_not(resetRequiredMatrix), tf.int32))
 
 				#calculate updated Vseq/Zseq/Aseq activation matrix taking into account previously activated sectors (batchIndices, neurons):
-				VseqUpdated = tf.math.logical_or(Vseq[generateParameterNameSeq(l, s, "Vseq")], ZseqPassThresold)
-				ZseqUpdated = tf.math.logical_or(Zseq[generateParameterNameSeq(l, s, "Zseq")], ZseqPassThresold) 
+				VseqExistingOld = tf.multiply(tf.dtypes.cast(Vseq[generateParameterNameSeq(l, s, "Vseq")], tf.float32), tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))	#zero all Vseq sectors (batchIndices, neurons) which pass threshold; prepare for addition
+				VseqUpdated = SANItf2_algorithmSANIoperations.updateTensorCells(VseqExistingOld, tf.cast(ZseqPassThresold, tf.float32))	#tf.math.logical_or(Vseq[generateParameterNameSeq(l, s, "Vseq")], ZseqPassThresold)
+				VseqUpdated = tf.cast(VseqUpdated, tf.bool)
+				ZseqExistingOld = tf.multiply(tf.dtypes.cast(Zseq[generateParameterNameSeq(l, s, "Zseq")], tf.float32), tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))	#zero all Zseq sectors (batchIndices, neurons) which pass threshold; prepare for addition
+				ZseqUpdated = SANItf2_algorithmSANIoperations.updateTensorCells(ZseqExistingOld, tf.cast(ZseqPassThresold, tf.float32))	#tf.math.logical_or(Zseq[generateParameterNameSeq(l, s, "Zseq")], ZseqPassThresold) 
+				ZseqUpdated = tf.cast(ZseqUpdated, tf.bool)
 				AseqUpdated, _ = sequentialActivationFunction(ZseqUpdated)
 				
 				#update parameter storage;
@@ -509,6 +517,8 @@ def TcontiguitySequentialInputInitialiseTemporaryVars(l, s, TMinPrevLayer, TMaxP
 
 
 def TcontiguitySequentialInputConstrainAseqInput(l, s, AseqInput, TMinSeqInput, TMaxSeqInput):
+	AseqInput, TMinSeqInputThresholded, TMaxSeqInputThresholded = (None, None, None)
+	
 	#ensure that T continguous constraint is met (T threshold AseqInput);
 	#NO: take the max subinput pathway only (ie matrix mult but with max() rather than sum() for each dot product)
 	if(s > 0):
@@ -578,20 +588,20 @@ def TcontiguitySequentialInputConstrainAseqInput(l, s, AseqInput, TMinSeqInput, 
 				TMaxSeqInputThresholded = tf.math.reduce_max(TMaxSeqInput, axis=1)	#CHECKTHIS - ensure equal to w
 
 				AseqInput = AseqInputTthresholded
-	return AseqInput
+	return AseqInput, TMinSeqInputThresholded, TMaxSeqInputThresholded
 
-def TcontiguityUpdateArrays(l, s, ZseqPassThresold):
+def TcontiguityUpdateArrays(l, s, ZseqPassThresold, TMinSeqInputThresholded, TMaxSeqInputThresholded):
 	ZseqPassThresoldInt = tf.dtypes.cast(ZseqPassThresold, tf.int32)
 	ZseqPassThresoldNot = tf.math.logical_not(ZseqPassThresold)
 	ZseqPassThresoldNotInt = tf.dtypes.cast(ZseqPassThresoldNot, tf.int32)
 
 	TMaxSeqPassThresoldUpdatedValues = tf.multiply(ZseqPassThresoldInt, TMaxSeqInputThresholded)
-	TMaxSeqUpdated = tf.multiply(TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")], ZseqPassThresoldNotInt)
-	TMaxSeqUpdated = tf.add(TMaxSeqUpdated, TMaxSeqPassThresoldUpdatedValues)
+	TMaxSeqExistingOld = tf.multiply(TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")], ZseqPassThresoldNotInt)
+	TMaxSeqUpdated = SANItf2_algorithmSANIoperations.updateTensorCells(TMaxSeqExistingOld, TMaxSeqPassThresoldUpdatedValues)	#tf.add(TMaxSeqUpdated, TMaxSeqPassThresoldUpdatedValues)
 
 	TMinSeqPassThresoldUpdatedValues = tf.multiply(ZseqPassThresoldInt, TMinSeqInputThresholded)
-	TMinSeqUpdated = tf.multiply(TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")], ZseqPassThresoldNotInt)
-	TMinSeqUpdated = tf.add(TMinSeqUpdated, TMinSeqPassThresoldUpdatedValues)					
+	TMinSeqExistingOld = tf.multiply(TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")], ZseqPassThresoldNotInt)
+	TMinSeqUpdated = SANItf2_algorithmSANIoperations.updateTensorCells(TMinSeqExistingOld, TMinSeqPassThresoldUpdatedValues)	#tf.add(TMinSeqExistingOld, TMinSeqPassThresoldUpdatedValues)					
 
 	#update parameter storage;
 	TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")] = TMaxSeqUpdated

@@ -22,9 +22,9 @@ import numpy as np
 import ANNtf2_globalDefs
 
 #select algorithmSANI:
-algorithmSANI = "sharedModulesNonContiguousFullConnectivity"
+#algorithmSANI = "sharedModulesNonContiguousFullConnectivity"
 #algorithmSANI = "sharedModulesBinary"
-#algorithmSANI = "sharedModules"
+algorithmSANI = "sharedModules"
 #algorithmSANI = "repeatedModules"
 
 #select dataset:
