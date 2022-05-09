@@ -44,10 +44,10 @@ def defineTrainingParametersSANI(dataset, trainMultipleFiles):
 		learningRate = 0.001
 		trainingSteps = 1
 		numEpochs = 1
-	elif(debugFastTrain):
+	elif(debugTrainSingleBatch):
 	   learningRate = 0.001
-	   trainingSteps = 10000
-	   numEpochs = 10
+	   trainingSteps = 1
+	   numEpochs = 1000
 	else:
 		learningRate = 0.001
 		trainingSteps = 10000
@@ -55,7 +55,7 @@ def defineTrainingParametersSANI(dataset, trainMultipleFiles):
 		#if(trainMultipleFiles):
 		#else:
 	
-	if(debugFastTrain):
+	if(debugUseSmallBatchSize):
 	   batchSize = 1
 	   displayStep = 1
 	else:
@@ -73,7 +73,8 @@ def defineTrainingParametersSANI(dataset, trainMultipleFiles):
 def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNumFeatures, dataset, debugUseSmallSentenceLengths, numberOfFeaturesPerWord):
 	
 	#debugUseSmallSentenceLengths not implemented
-
+	global n_h
+	
 	layerSizeMultiplier = numberOfFeaturesPerWord
 	if(dataset == "wikiXmlDataset"):
 		firstLayerSize = numberOfFeaturesPerWord*10
@@ -148,7 +149,6 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 	for l1 in range(0, numberOfLayers+1):
 		print("n_h[", l1, "] = ", n_h[l1]) 
 		
-	
 	return n_h, numberOfLayers
 
 
@@ -216,8 +216,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 					#print("\t\ts = " + str(s))
 					if(useSparseTensors):
 						if(allowMultipleSubinputsPerSequentialInput):
-
-							numberSubinputsPerSequentialInput = calculateNumberSubinputsPerSequentialInputSparseTensors(s)
+							numberSubinputsPerSequentialInput = calculateNumberSubinputsPerSequentialInputSparseTensors(l, s)
 
 							if(supportSkipLayers):
 								#neuronIndex = np.random.randint(0, n_h_cumulativeNP[l]+1, n_h[l])
@@ -239,7 +238,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 								CseqNP = np.random.randint(0, n_h[l-1], (numberSubinputsPerSequentialInput, n_h[l]))
 								Cseq[generateParameterNameSeq(l, s, "Cseq")] = tf.Variable(CseqNP, dtype=tf.int32)
 
-							if(performSummationOfSubInputsWeighted):
+							if(performFunctionOfSubInputsWeighted):
 								Wseq[generateParameterNameSeq(l, s, "Wseq")] = tf.Variable(randomNormal([numberSubinputsPerSequentialInput, n_h[l]], dtype=tf.float32))
 								Bseq[generateParameterNameSeq(l, s, "Bseq")] = tf.Variable(tf.zeros(n_h[l]), dtype=tf.float32)
 
@@ -260,7 +259,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 								CseqNP = np.random.randint(0, n_h[l-1], n_h[l])
 								Cseq[generateParameterNameSeq(l, s, "Cseq")] = tf.Variable(CseqNP, dtype=tf.int32)
 					else:
-						if(performSummationOfSubInputsWeighted):
+						if(performFunctionOfSubInputsWeighted):
 							if(supportSkipLayers):
 								Wseq[generateParameterNameSeq(l, s, "Wseq")] = tf.Variable(randomNormal([n_h_cumulativeNP[l], n_h[l]], dtype=tf.float32))	#older supportSkipLayers implementation uses n_h_cumulativeNP (should be upgraded)
 								Bseq[generateParameterNameSeq(l, s, "Bseq")] = tf.Variable(tf.zeros(n_h[l]), dtype=tf.float32)
@@ -295,16 +294,16 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 				#     |    /
 				# L2: x  x
 
-				numberSubinputsPerSequentialInput = calculateNumberSubinputsPerSequentialInputSparseTensors(0)
-
-				CseqNPl1c0 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
-				CseqNPl1c1 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
-				CseqNPl2c0 = np.zeros((numberSubinputsPerSequentialInput, n_h[2]))
-				CseqNPl2c1 = np.zeros((numberSubinputsPerSequentialInput, n_h[2]))
-				CseqLayerNPl1c0 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
-				CseqLayerNPl1c1 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
-				CseqLayerNPl2c0 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
-				CseqLayerNPl2c1 = np.zeros((numberSubinputsPerSequentialInput, n_h[1]))
+				numberSubinputsPerSequentialInput1 = calculateNumberSubinputsPerSequentialInputSparseTensors(1, 0)
+				CseqNPl1c0 = np.zeros((numberSubinputsPerSequentialInput1, n_h[1]))
+				CseqNPl1c1 = np.zeros((numberSubinputsPerSequentialInput1, n_h[1]))
+				numberSubinputsPerSequentialInput2 = calculateNumberSubinputsPerSequentialInputSparseTensors(2, 0)
+				CseqNPl2c0 = np.zeros((numberSubinputsPerSequentialInput2, n_h[2]))
+				CseqNPl2c1 = np.zeros((numberSubinputsPerSequentialInput2, n_h[2]))
+				CseqLayerNPl1c0 = np.zeros((numberSubinputsPerSequentialInput1, n_h[1]))
+				CseqLayerNPl1c1 = np.zeros((numberSubinputsPerSequentialInput1, n_h[1]))
+				CseqLayerNPl2c0 = np.zeros((numberSubinputsPerSequentialInput2, n_h[1]))
+				CseqLayerNPl2c1 = np.zeros((numberSubinputsPerSequentialInput2, n_h[1]))
 
 				CseqNPl1c0[0, 0] = 0
 				CseqNPl1c1[0, 0] = 1
@@ -335,27 +334,38 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 
 def getSparsityLevelFullConnectivity(l, l2, n_h):
 	if(useFullConnectivitySparsity):
-		sparsityLevel = probabilityOfActiveConnection
+		if(firstLayerFullConnectivity):
+			if(l2 == 0):	#if((l == 1) and (l2 == 0))
+				sparsityLevel = 1.0
+			else:
+				sparsityLevel = probabilityOfActiveConnection
+		else:
+			sparsityLevel = probabilityOfActiveConnection
 	else:
 		sparsityLevel = 1.0	#probability of initial strong neural connection per neuron in layer
 	
 	return sparsityLevel
 
 
-def calculateNumberSubinputsPerSequentialInputSparseTensors(s):
+def calculateNumberSubinputsPerSequentialInputSparseTensors(l, s):
 
 	if(allowMultipleSubinputsPerSequentialInput):
-		if(oneSequentialInputHasOnlyOneSubinput):
-			if(firstSequentialInputHasOnlyOneSubinput and s==0):
-				numberSubinputsPerSequentialInput = 1
-			elif(lastSequentialInputHasOnlyOneSubinput and s==numberOfSequentialInputs-1):
-				numberSubinputsPerSequentialInput = 1
+		if((l == 1) and firstLayerFullConnectivity):
+			numberSubinputsPerSequentialInput = n_h[0]	#number of features in first layer
+		else:
+			if(oneSequentialInputHasOnlyOneSubinput):
+				if(firstSequentialInputHasOnlyOneSubinput and s==0):
+					numberSubinputsPerSequentialInput = 1
+				elif(lastSequentialInputHasOnlyOneSubinput and s==numberOfSequentialInputs-1):
+					numberSubinputsPerSequentialInput = 1
+				else:
+					numberSubinputsPerSequentialInput = maxNumberSubinputsPerSequentialInput
 			else:
 				numberSubinputsPerSequentialInput = maxNumberSubinputsPerSequentialInput
-		else:
-			numberSubinputsPerSequentialInput = maxNumberSubinputsPerSequentialInput
 	else:
 		#calculateNumberSubinputsPerSequentialInputSparseTensors function should not have been called
+		print("calculateNumberSubinputsPerSequentialInputSparseTensors error: !allowMultipleSubinputsPerSequentialInput")
+		exit()
 		numberSubinputsPerSequentialInput = 1	
 		
 	return numberSubinputsPerSequentialInput

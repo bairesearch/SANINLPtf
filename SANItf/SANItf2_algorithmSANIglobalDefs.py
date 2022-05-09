@@ -34,12 +34,14 @@ dataset = "wikiXmlDataset"	#high first hidden layer connectivity is required
 #SANItf2: dataset content requirements: require at least 2 sentences/sequences/sentences in data file
 
 #performance test/enhancements for development environment only: 
-printGraphVisualisation = False	#tensorflow requires autograph compatible functions for visualisation (dynamic computational graphs defined through eager execution not supported)	#incomplete; requires to convert tensor dynamic initialisations to static initialisations via (unavailable) python preprocessor definitions
 printIO = False
 printStatus = False
-debugUseSmallSequenceDataset = True	#def:False	#increases performance during development	#eg data-POStagSentence-smallBackup
-debugUseSmallSentenceLengths = False	#def:False	#increases performance during development	#eg data-simple-POStagSentence-smallBackup	#Preconditions: requires dataset with at least 2 sentences of size < limitSentenceLengthsSize; for test/train split
-debugFastTrain = False	#use batchSize=1	#NO: use small dataset with ~1 input
+printGraphVisualisation = False	#tensorflow requires autograph compatible functions for visualisation (dynamic computational graphs defined through eager execution not supported)	#incomplete; requires to convert tensor dynamic initialisations to static initialisations via (unavailable) python preprocessor definitions
+printGradients = False	#test backpropagation through SANI
+debugTrainSingleBatch = False	#test paramater optimisation by repeatedly training a single batch only
+debugUseSmallSequenceDataset = True	#increases performance during development	#eg data-POStagSentence-smallBackup
+debugUseSmallSentenceLengths = False	#increases performance during development	#eg data-simple-POStagSentence-smallBackup	#Preconditions: requires dataset with at least 2 sentences of size < limitSentenceLengthsSize; for test/train split
+debugUseSmallBatchSize = False	#use batchSize=1
 
 #parameter configuration (all algorithmSANI):
 activationFunctionThreshold	= 0.0	#default: 0.0	#>=0: reduces probability of neural sequential input firing
@@ -74,9 +76,12 @@ elif(algorithmSANI == "repeatedModules"):
 
 #POStagSequence dataset contains equal length input sequences, POStagSentence dataset contains arbitarily lengthed input sequences
 
+firstLayerFullConnectivity = False
 if(dataset == "wikiXmlDataset"):
 	vectorisedInput = True	#word vector input
 	vectorisedOutput = True	#word vector output
+	if(SANIsharedModules):
+		firstLayerFullConnectivity = True	#connect first layer neurons to every feature in input word vector
 else:
 	vectorisedInput = False
 	vectorisedOutput = False	#single/multi class output (one-hot encoded)
@@ -128,11 +133,17 @@ elif(algorithmSANI == "sharedModulesBinary"):
 		doNotResetNeuronOutputUntilAllSequentialInputsActivated = True
 		
 	useSparseTensors = True	#mandatory
+	
+	performTindependentFunctionOfSubInputs = False	#initialise
+	if(allowMultipleSubinputsPerSequentialInput):
+		if(useTcontiguity):
+			performTindependentFunctionOfSubInputs = True	#CHECKTHIS (not yet implemented)
+		
 elif(algorithmSANI == "sharedModules"):
 	if(useMultipleSubinputsPerSequentialInput):
 		allowMultipleSubinputsPerSequentialInput = True
 	
-	allowMultipleContributingSubinputsPerSequentialInput = False	#initialise
+	allowMultipleContributingSubinputsPerSequentialInput = False	#initialise	#relevant to useTcontiguity only
 	if(allowMultipleSubinputsPerSequentialInput):
 		if(useTcontiguity):
 			allowMultipleContributingSubinputsPerSequentialInput = False	#optional	#whether only 1 subinput can be fired to activate a sequential input	
@@ -156,16 +167,27 @@ elif(algorithmSANI == "sharedModules"):
 
 	if(allowMultipleSubinputsPerSequentialInput):
 		if(allowMultipleContributingSubinputsPerSequentialInput):
-			useSparseTensors = False	#optional
+			useSparseTensors = False	#optional	#orig: False
 		else:
-			useSparseTensors = True		#mandatory	#FUTURE: upgrade code to remove this requirement 
+			useSparseTensors = True		#optional
 	else:
 		useSparseTensors = True	#mandatory	#sparse tensors are used
+		
+	performTindependentFunctionOfSubInputs = False	#initialise
+	if(allowMultipleSubinputsPerSequentialInput):
+		if(useTcontiguity):
+			performTindependentFunctionOfSubInputs = True
+			
 elif(algorithmSANI == "repeatedModules"): 	
 	if(useMultipleSubinputsPerSequentialInput):
 		allowMultipleSubinputsPerSequentialInput = True
-	useSparseTensors = True	#mandatory
+	useSparseTensors = True	#OLD: mandatory
 	inputNumberFeaturesForCurrentWordOnly = False
+	
+	performTindependentFunctionOfSubInputs = False	#initialise
+	if(allowMultipleSubinputsPerSequentialInput):
+		if(useTcontiguity):
+			performTindependentFunctionOfSubInputs = True	#CHECKTHIS (implemented?)
 
 if(useMultipleSubinputsPerSequentialInput):
 	layerSizeConvergence = False #OLD: True	#CHECKTHIS
@@ -191,7 +213,7 @@ elif(algorithmSANI == "sharedModules"):
 	if(useSparseTensors):	#FUTURE: upgrade code to remove this requirement
 		if(allowMultipleSubinputsPerSequentialInput):
 			#if(numberOfSequentialInputs == 2):
-			oneSequentialInputHasOnlyOneSubinput = True	#conditional probability determination of events
+			oneSequentialInputHasOnlyOneSubinput = False	#optional	#orig: True	#conditional probability determination of events
 		else:
 			oneSequentialInputHasOnlyOneSubinput = False
 	else:
@@ -206,8 +228,7 @@ elif(algorithmSANI == "repeatedModules"):
 	oneSequentialInputHasOnlyOneSubinput = False	#mandatory (repeatedModules does not currently support oneSequentialInputHasOnlyOneSubinput as numberSubinputsPerSequentialInput is not always calculated via calculateNumberSubinputsPerSequentialInputSparseTensors function)
 	if(allowMultipleSubinputsPerSequentialInput):
 		if(useSparseTensors):
-			numberSubinputsPerSequentialInput = numberSubinputsPerSequentialInputDefault #sparsity
-			maxNumberSubinputsPerSequentialInput = numberSubinputsPerSequentialInput	#required by defineNeuralNetworkParametersSANI only
+			maxNumberSubinputsPerSequentialInput = numberSubinputsPerSequentialInputDefault	#sparsity
 if(oneSequentialInputHasOnlyOneSubinput):
 	firstSequentialInputHasOnlyOneSubinput = True #use combination of allowMultipleSubinputsPerSequentialInput for different sequential inputs;  #1[#2] sequential input should allow multiple subinputs, #2[#1] sequential input should allow single subinput
 	if(firstSequentialInputHasOnlyOneSubinput):
@@ -258,8 +279,8 @@ if(inputNumberFeaturesForCurrentWordOnly):
 else:
 	numberOfWordsInConvolutionalWindowSeen = 10
 	
-#set parameters performSummationOfSubInputsWeighted/useLastSequentialInputOnly/numberOfWordsInConvolutionalWindowSeen:
-performSummationOfSubInputsWeighted = False 	#initialise
+#set parameters performFunctionOfSubInputsWeighted/useLastSequentialInputOnly/numberOfWordsInConvolutionalWindowSeen:
+performFunctionOfSubInputsWeighted = False 	#initialise
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	performThresholdOfSubInputsNonlinear = True	#default: apply non-linear activation function to sequential input (use Aseq)
 	if(not performThresholdOfSubInputsNonlinear):
@@ -268,13 +289,11 @@ if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 			sequentialInputActivationThreshold = 0.1	#CHECKTHIS (requires optimisation)	#should this be used with backprop?
 	sequentialInputActivationThreshold = 0.1	#CHECKTHIS (requires optimisation)	#should this be used with backprop?
 		
-	performSummationOfSubInputs = True	#mandatory (implied)
-	if(performSummationOfSubInputs):
-		performSummationOfSubInputsWeighted = True	#mandatory (implied)
-		if(performThresholdOfSubInputsNonlinear):
-			performSummationOfSubInputsNonlinear = True		#default: apply non-linear activation function to sequential input (use Aseq)
-		else:
-			performSummationOfSubInputsNonlinear = False
+	performFunctionOfSubInputsWeighted = True	#mandatory (implied)
+	if(performThresholdOfSubInputsNonlinear):
+		performSummationOfSubInputsNonlinear = True		#default: apply non-linear activation function to sequential input (use Aseq)
+	else:
+		performSummationOfSubInputsNonlinear = False
 	
 	performSummationOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
 	if(performSummationOfSequentialInputs):
@@ -294,7 +313,7 @@ if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	else:
 		pass	#if(performSummationOfSubInputsBinary): simple thresholding function (activations are normalised to 1.0)
 elif(algorithmSANI == "sharedModulesBinary"):		
-	performSummationOfSubInputsWeighted = False	#mandatory
+	performFunctionOfSubInputsWeighted = False	#mandatory
 	useLastSequentialInputOnly = True	#implied variable (not used)
 	performSummationOfSequentialInputsWeighted = False	#mandatory (implied)
 elif(algorithmSANI == "sharedModules"):
@@ -303,21 +322,26 @@ elif(algorithmSANI == "sharedModules"):
 		sequentialInputActivationThreshold = 0.1	#CHECKTHIS (requires optimisation)	#should this be used with backprop?
 		
 	if(allowMultipleSubinputsPerSequentialInput):
-		if(allowMultipleContributingSubinputsPerSequentialInput):
-			#[multiple contributing subinputs per sequential input] #each sequential input can detect a pattern of activation from the previous layer
-			performSummationOfSubInputs = True	#mandatory (implied)
-			performSummationOfSubInputsWeighted = True	#mandatory?
-			if(performThresholdOfSubInputsNonlinear):
-				performSummationOfSubInputsNonlinear = True
+	
+		if(useSparseTensors):
+			if(performTindependentFunctionOfSubInputs):
+				if(allowMultipleContributingSubinputsPerSequentialInput):
+					#[multiple contributing subinputs per sequential input] #each sequential input can detect a pattern of activation from the previous layer
+					performFunctionOfSubInputsWeighted = True	#mandatory?
+				else:
+					performFunctionOfSubInputsWeighted = False	#will take (True: most weighted) (False: any) active time contiguous subinput
+				performFunctionOfSubInputsSummation = True
+				#performFunctionOfSubInputsMax = True	#take sub input with max input signal*weight
 			else:
-				performSummationOfSubInputsNonlinear = False
+				performFunctionOfSubInputsWeighted = True	#mandatory	#determines if backprop is required to update weight matrix associated with inputs to a sequential input?
 		else:
-			performSummationOfSubInputs = False	#optional though by algorithm design: False
-			performSummationOfSubInputsWeighted = False	#will take (True: most weighted) (False: any) active time contiguous subinput
-			if(performThresholdOfSubInputsNonlinear):
-				performSummationOfSubInputsNonlinear = True
-			else:
-				performSummationOfSubInputsNonlinear = False
+			performFunctionOfSubInputsWeighted = True
+			#performFunctionOfSubInputsAverage = True
+				
+		if(performThresholdOfSubInputsNonlinear):
+			performSummationOfSubInputsNonlinear = True
+		else:
+			performSummationOfSubInputsNonlinear = False		
 
 		performSummationOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
 		if(performSummationOfSequentialInputs):
@@ -339,9 +363,9 @@ elif(algorithmSANI == "sharedModules"):
 			useLastSequentialInputOnly = True	#implied variable (not used)
 
 	else:
-		performSummationOfSubInputsWeighted = False
+		performFunctionOfSubInputsWeighted = False
 
-		#required irrespective of performSummationOfSubInputs since performSummationOfSequentialInputs code tests for performSummationOfSubInputsNonlinear instead of performThresholdOfSubInputsNonlinear:
+		#required irrespective of performFunctionOfSubInputsSummation since performSummationOfSequentialInputs code tests for performSummationOfSubInputsNonlinear instead of performThresholdOfSubInputsNonlinear:
 		if(performThresholdOfSubInputsNonlinear):
 			performSummationOfSubInputsNonlinear = True	
 		else:
@@ -368,20 +392,23 @@ elif(algorithmSANI == "repeatedModules"):
 	if(allowMultipleSubinputsPerSequentialInput):
 		#[multiple subinputs per sequential input] #each sequential input can detect a pattern of activation from the previous layer
 
-		performIndependentSubInputValidation = True	#optional?
-		performSummationOfSubInputs = True	#else take sub input with max input signal*weight
-		if(performSummationOfSubInputs):
-			performSummationOfSubInputsWeighted = True	#determines if backprop is required to update weight matrix associated with inputs to a sequential input?
-			if(performThresholdOfSubInputsNonlinear):
-				performSummationOfSubInputsNonlinear = True
+		performIndependentSubInputValidation = False	#initialisation
+		if(useSparseTensors):
+			if(performTindependentFunctionOfSubInputs):
+				performIndependentSubInputValidation = True	#performIndependentSubInputValidation is only coded for performTindependentFunctionOfSubInputs
+				performFunctionOfSubInputsWeighted = True	#determines if backprop is required to update weight matrix associated with inputs to a sequential input?
+				performFunctionOfSubInputsSummation = True
+				#performFunctionOfSubInputsMax = True	#take sub input with max input signal*weight
 			else:
-				performSummationOfSubInputsNonlinear = False
+				performFunctionOfSubInputsWeighted = True	#mandatory
 		else:
-			performSummationOfSubInputsWeighted = False
-			if(performThresholdOfSubInputsNonlinear):
-				performSummationOfSubInputsNonlinear = True
-			else:
-				performSummationOfSubInputsNonlinear = False	
+			performFunctionOfSubInputsWeighted = True
+			#performFunctionOfSubInputsAverage = True
+			
+		if(performThresholdOfSubInputsNonlinear):
+			performSummationOfSubInputsNonlinear = True
+		else:
+			performSummationOfSubInputsNonlinear = False	
 
 		performSummationOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
 		if(performSummationOfSequentialInputs):

@@ -107,10 +107,10 @@ def filterNParraysByClassTargetInverse(train_x, train_y, classTargetFilterIndex=
 	train_yFiltered = train_y[rowFilter]
 	return train_xFiltered, train_yFiltered
   
-def generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize):
+def generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize, randomise=True):
 	#shuffleSize = shuffleBufferSize
 	trainDataUnbatched = generateTFtrainDataUnbatchedFromNParrays(train_x, train_y)
-	trainData = generateTFtrainDataFromTrainDataUnbatched(trainDataUnbatched, shuffleSize, batchSize)
+	trainData = generateTFtrainDataFromTrainDataUnbatched(trainDataUnbatched, shuffleSize, batchSize, randomise)
 	return trainData
 
 def generateTFtrainDataUnbatchedFromNParrays(train_x, train_y):
@@ -119,8 +119,11 @@ def generateTFtrainDataUnbatchedFromNParrays(train_x, train_y):
 	trainDataUnbatched = tf.data.Dataset.from_tensor_slices((train_x, train_y))
 	return trainDataUnbatched
 
-def generateTFtrainDataFromTrainDataUnbatched(trainDataUnbatched, shuffleSize, batchSize):
-	trainData = trainDataUnbatched.repeat().shuffle(shuffleSize).batch(batchSize).prefetch(1)	#do not repeat
+def generateTFtrainDataFromTrainDataUnbatched(trainDataUnbatched, shuffleSize, batchSize, randomise=True):
+	if(randomise):
+		trainData = trainDataUnbatched.repeat().shuffle(shuffleSize).batch(batchSize).prefetch(1)
+	else:
+		trainData = trainDataUnbatched.repeat().batch(batchSize).prefetch(1)
 	return trainData
 
 

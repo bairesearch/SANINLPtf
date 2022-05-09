@@ -72,7 +72,7 @@ if(useLearningRuleBackpropagation):
 #if((algorithmSANI == "sharedModulesNonContiguousFullConnectivity") or (algorithmSANI == "sharedModules") or (algorithmSANI == "repeatedModules")):
 #	#variable parameters: 
 #	if(allowMultipleSubinputsPerSequentialInput):
-#		if(performSummationOfSubInputsWeighted):
+#		if(performFunctionOfSubInputsWeighted):
 #			Wseq = {}	#weights matrix
 #			Bseq = {}	#biases vector
 #	if(performSummationOfSequentialInputsWeighted):

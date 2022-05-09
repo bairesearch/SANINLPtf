@@ -218,7 +218,7 @@ def executeOptimisation(batchIndex, x, y, datasetNumClasses, numberOfLayers, opt
 		if(SANItf2_algorithmSANIglobalDefs.performSummationOfSequentialInputsWeighted):
 			Wlist.append(SANItf2_algorithm.W[generateParameterName(l1, "W")])
 			Blist.append(SANItf2_algorithm.B[generateParameterName(l1, "B")])
-		if(SANItf2_algorithmSANIglobalDefs.performSummationOfSubInputsWeighted):
+		if(SANItf2_algorithmSANIglobalDefs.performFunctionOfSubInputsWeighted):
 			if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 				if(SANItf2_algorithmSANIglobalDefs.supportFeedback):
 					l2Max = numberOfLayers
@@ -237,7 +237,19 @@ def executeOptimisation(batchIndex, x, y, datasetNumClasses, numberOfLayers, opt
 	trainableVariables = Wlist + Blist + Wseqlist + Bseqlist + WheadList
 
 	gradients = gt.gradient(loss, trainableVariables)
-						
+	
+	if(SANItf2_algorithmSANIglobalDefs.printGradients):
+		#count num parameters;
+		numParam = 0
+		for t in gradients:
+			numParam = numParam + tf.size(t)	
+		print("numParam = ", numParam)
+		#verify gradients;
+		#print("gradients = ", gradients)
+		filename = "gradients.txt"
+		gradientsString = tf.strings.format("{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n", gradients, summarize=-1)
+		tf.io.write_file(filename, gradientsString)
+
 	if(suppressGradientDoNotExistForVariablesWarnings):
 		optimizer.apply_gradients([
     		(grad, var) 
@@ -368,7 +380,8 @@ def trainMinimal():
 		#print("shuffleSize = ", shuffleSize)
 		#print("batchSize = ", batchSize)
 		#print("train_x.shape = ", train_x.shape)
-		trainData = generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize)
+		randomise = (not SANItf2_algorithmSANIglobalDefs.debugTrainSingleBatch)
+		trainData = generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize, randomise)
 		trainDataList = []
 		trainDataList.append(trainData)
 		trainDataListIterators = []
@@ -378,7 +391,7 @@ def trainMinimal():
 		for batchIndex in range(int(trainingSteps)):
 			(batchX, batchY) = trainDataListIterators[trainDataIndex].get_next()	#next(trainDataListIterators[trainDataIndex])
 			batchYactual = batchY
-					
+							
 			display = False
 			if(batchIndex % displayStep == 0):
 				display = True	
@@ -447,7 +460,8 @@ def train(trainMultipleNetworks=False, trainMultipleFiles=False, greedy=False):
 			#greedy code;
 			for l in range(1, maxLayer+1):
 				print("l = ", l)
-				trainData = generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize)
+				randomise = (not SANItf2_algorithmSANIglobalDefs.debugTrainSingleBatch)
+				trainData = generateTFtrainDataFromNParrays(train_x, train_y, shuffleSize, batchSize, randomise)
 				#print("trainData = ", trainData)
 				trainDataList = []
 				trainDataList.append(trainData)
