@@ -64,8 +64,23 @@ else:
 	useTcontiguity = False	#optional (orig: True)
 	useSkipLayers = False	#optional (orig: True)
 	useMultipleSubinputsPerSequentialInput = True	#optional
+	
+if((algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):
+	useReverseSequentialInputOrder = False	#initialise
+	if(useTcontiguity):
+		resetSequentialInputs = True	#likely mandatory (development conditions)
+		useReverseSequentialInputOrder = True	#likely mandatory (development conditions)
+	else:
+		resetSequentialInputs = False	#optional	#overwrites first input if valid and resets all sequential inputs
+		if(resetSequentialInputs):
+			useReverseSequentialInputOrder = True	#optional - required for resetSequentialInputsIfOnlyFirstInputValid	
+
+	overwriteSequentialInputs = False	#initialise		
+	if(not resetSequentialInputs):
+		overwriteSequentialInputs = True	#mandatory	#overwrites any valid sequential input it encounters
+				
 if(useMultipleSubinputsPerSequentialInput):
-	numberSubinputsPerSequentialInputDefault = 3
+	numberSubinputsPerSequentialInputDefault = 10	#default: 3
 useSequentialInputs = True
 if(useSequentialInputs):
 	numberOfSequentialInputs = 2	#2	#3	#1 - no sequential input requirement enforced
@@ -136,11 +151,13 @@ elif(algorithmSANI == "sharedModulesBinary"):
 		allowMultipleSubinputsPerSequentialInput = True		#originally set as False
 	inputNumberFeaturesForCurrentWordOnly = True	#mandatory (only coded implementation)
 
-	resetSequentialInputs = True
-	if(useTcontiguity):
-		resetSequentialInputsIfOnlyFirstInputValid = True	#see GIA_TXT_REL_TRANSLATOR_NEURAL_NETWORK_SEQUENCE_GRAMMAR development history for meaning and algorithmic implications of this feature
+	resetSequentialInputsIfOnlyFirstInputValid = False	#initialise
 	if(resetSequentialInputs):
-		doNotResetNeuronOutputUntilAllSequentialInputsActivated = True
+		if(useReverseSequentialInputOrder):
+			resetSequentialInputsIfOnlyFirstInputValid = True	#interpretation: resetSequentialInputsIfOnlyFirstInputValid and no others
+		if(useTcontiguity):
+			resetSequentialInputsTContiguity = True	#see GIA_TXT_REL_TRANSLATOR_NEURAL_NETWORK_SEQUENCE_GRAMMAR development history for meaning and algorithmic implications of this feature
+		doNotResetNeuronOutputUntilAllSequentialInputsActivated = True	#delays disabling neuron output while measuring new sequential inputs
 		
 	useSparseTensors = True	#mandatory
 	
@@ -166,14 +183,16 @@ elif(algorithmSANI == "sharedModules"):
 	else:
 		inputNumberFeaturesForCurrentWordOnly = True
 
-	resetSequentialInputs = True
-	if(useTcontiguity):
-		resetSequentialInputsIfOnlyFirstInputValid = True	#see GIA_TXT_REL_TRANSLATOR_NEURAL_NETWORK_SEQUENCE_GRAMMAR development history for meaning and algorithmic implications of this feature
-		if(resetSequentialInputsIfOnlyFirstInputValid):
-			if(allowMultipleContributingSubinputsPerSequentialInput):
-				averageTimeChangeOfNewInputRequiredForReset = 1
+	resetSequentialInputsIfOnlyFirstInputValid = False	#initialise
 	if(resetSequentialInputs):
-		doNotResetNeuronOutputUntilAllSequentialInputsActivated = True
+		if(useReverseSequentialInputOrder):
+			resetSequentialInputsIfOnlyFirstInputValid = True	#interpretation: resetSequentialInputsIfOnlyFirstInputValid and no others
+		if(useTcontiguity):
+			resetSequentialInputsTContiguity = True	#see GIA_TXT_REL_TRANSLATOR_NEURAL_NETWORK_SEQUENCE_GRAMMAR development history for meaning and algorithmic implications of this feature
+			if(resetSequentialInputsTContiguity):
+				if(allowMultipleContributingSubinputsPerSequentialInput):
+					averageTimeChangeOfNewInputRequiredForReset = 1
+		doNotResetNeuronOutputUntilAllSequentialInputsActivated = True	#delays disabling neuron output while measuring new sequential inputs
 
 	if(allowMultipleSubinputsPerSequentialInput):
 		if(allowMultipleContributingSubinputsPerSequentialInput):
