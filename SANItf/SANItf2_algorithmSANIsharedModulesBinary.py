@@ -69,7 +69,7 @@ if(useLearningRuleBackpropagation):
 #		if(performFunctionOfSubInputsWeighted):
 #			Wseq = {}	#weights matrix
 #			Bseq = {}	#biases vector
-#	if(performSummationOfSequentialInputsWeighted):
+#	if(performFunctionOfSequentialInputsWeighted):
 #		W = {}	#weights matrix
 #		B = {}	#biases vector
 	
@@ -187,20 +187,12 @@ def neuralNetworkPropagationSANI(x):
 	maxNumberOfWordsInSentenceBatch = tf.divide(numberOfFeaturesCropped, numberOfFeaturesPerWord)
 	maxNumberOfWordsInSentenceBatch = tf.dtypes.cast(maxNumberOfWordsInSentenceBatch, tf.int32)
 		
-	#method 2 trial;
-	#match_indices2 = tf.where(tf.equal(paddingTagIndex, x), x=tf.range(tf.shape(x)[1])*tf.ones_like(x), y=0*tf.ones_like(x))
-	#print(match_indices2)
-	#numberOfFeaturesCropped = tf.reduce_max(match_indices2)
-	#print("numberOfFeaturesCropped = ", numberOfFeaturesCropped)
-
 	inputLength = numberOfFeaturesPerWord*numberOfWordsInConvolutionalWindowSeen
 		
 	match_indices = tf.where(tf.equal(paddingTagIndex, x), x=tf.range(tf.shape(x)[1])*tf.ones_like(x), y=(tf.shape(x)[1])*tf.ones_like(x))
 	numberOfFeaturesActiveBatch = tf.math.argmin(match_indices, axis=1)
 	numberOfWordsInSentenceBatch = tf.divide(numberOfFeaturesActiveBatch, numberOfFeaturesPerWord)
 	numberOfWordsInSentenceBatch = tf.dtypes.cast(numberOfWordsInSentenceBatch, tf.int32)
-
-	#print(numberOfWordsInSentenceBatch = ", numberOfWordsInSentenceBatch)
 	
 	for l in range(1, numberOfLayers+1):
 		Z[generateParameterName(l, "Z")] = tf.dtypes.cast(tf.zeros([batchSize, n_h[l]]), dtype=tf.bool)	#A=Z for binary activations
@@ -221,7 +213,6 @@ def neuralNetworkPropagationSANI(x):
 					AseqInputVerified[generateParameterNameSeq(l, s, "AseqInputVerified")] = tf.dtypes.cast(tf.zeros([batchSize, numberSubinputsPerSequentialInput, n_h[l]]), dtype=tf.bool)
 		
 	wMax = maxNumberOfWordsInSentenceBatch-numberOfWordsInConvolutionalWindowSeen+1
-	#print("wMax = ", wMax)
 				
 	for w in range(wMax):
 	
@@ -235,22 +226,13 @@ def neuralNetworkPropagationSANI(x):
 			AfirstLayerShifted =  tf.dtypes.cast(x[:, 0:inputLength], tf.bool)
 		else:
 			paddings = tf.constant([[0, 0], [w*numberOfFeaturesPerWord, 0]])	#shift input to the right by x words (such that a different input window will be presented to the network)
-			#AfirstLayerShifted = x[:, w*numberOfFeaturesPerWord:min(w*numberOfFeaturesPerWord+inputLength, numberOfFeaturesCropped)]
 			AfirstLayerShifted = tf.dtypes.cast(x[:, w*numberOfFeaturesPerWord:w*numberOfFeaturesPerWord+inputLength], tf.bool)
-			#print("AfirstLayerShifted = ", AfirstLayerShifted)
-			#print("paddings = ", paddings)
 			tf.pad(AfirstLayerShifted, paddings, "CONSTANT")
-		
-		#printShape(AfirstLayerShifted, "AfirstLayerShifted")	
-		#printAverage(AfirstLayerShifted, "AfirstLayerShifted", 1)
 		
 		AprevLayer = AfirstLayerShifted
 		
 		if(enforceTcontiguityConstraints):
 			TMinPrevLayer, TMaxPrevLayer = TcontiguityInitialiseTemporaryVars(w)
-			
-		#if(printStatus):
-			#printAverage(AprevLayer, "AprevLayer", 1)
 
 		for l in range(1, numberOfLayers+1):	#start algorithm at n_h[1]; ie first hidden layer
 
@@ -259,11 +241,10 @@ def neuralNetworkPropagationSANI(x):
 
 			#declare variables used across all sequential input of neuron
 			#primary vars;
-			if(l == 1):
-				if(supportSkipLayers):
+			if(supportSkipLayers):
+				if(l == 1):
 					AprevLayerAll = AprevLayer	#x	
-			else:
-				if(supportSkipLayers):
+				else:
 					AprevLayerAll = tf.concat([AprevLayerAll, AprevLayer], 1)
 			if(enforceTcontiguityConstraints):
 				TMinPrevLayerAll, TMaxPrevLayerAll = TcontiguityLayerInitialiseTemporaryVars(l, TMinPrevLayer, TMaxPrevLayer)
@@ -292,7 +273,6 @@ def neuralNetworkPropagationSANI(x):
 				if(useSparseTensors):
 					if(useMultipleSubinputsPerSequentialInput):
 						numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInputSparseTensors(l, s)
-						#print("numberSubinputsPerSequentialInput = ", numberSubinputsPerSequentialInput)
 						
 				#identify (hypothetical) activation of neuron sequential input
 				if(supportFullConnectivity):
@@ -303,19 +283,9 @@ def neuralNetworkPropagationSANI(x):
 						CseqCrossLayer = tf.add(Cseq[generateParameterNameSeq(l, s, "Cseq")], CseqCrossLayerBase)
 						AseqInput = tf.gather(AprevLayerAll, CseqCrossLayer, axis=1)
 					else:
-						#if(printStatus):
-							#printAverage(AprevLayer, "AprevLayer", 3)
-						#printAverage(TprevLayer, "TprevLayer", 3)
-						#print("AprevLayer = ", AprevLayer.shape)
-						#print("Cseq = ", Cseq[generateParameterNameSeq(l, s, "Cseq")].shape)
 						AseqInput = tf.gather(AprevLayer, Cseq[generateParameterNameSeq(l, s, "Cseq")], axis=1)
 				if(enforceTcontiguityConstraints):
 					TMinSeqInput, TMaxSeqInput = TcontiguitySequentialInputInitialiseTemporaryVars(l, s, TMinPrevLayer, TMaxPrevLayer, TMinPrevLayerAll, TMaxPrevLayerAll)
-				
-				#printAverage(AseqInput, "AseqInput", 3)
-				#if(enforceTcontiguityConstraints):
-					#printAverage(TMaxSeqInput, "TMaxSeqInput", 3)
-					#printAverage(TMinSeqInput, "TMinSeqInput", 3)
 				
 				#calculate validation matrix based upon sequentiality requirements
 				#if Vseq[s-1] is True and Vseq[s] is False;
@@ -331,20 +301,11 @@ def neuralNetworkPropagationSANI(x):
 						VseqTemp = tf.math.logical_and(VseqTemp, tf.math.logical_not(Vseq[generateParameterNameSeq(l, s, "Vseq")]))
 
 				VseqBool = VseqTemp
-			
-				#printAverage(VseqBool, "VseqBool", 3)
-			
-				#AseqInput = tf.multiply(VseqBool, AseqInput)
-			
+									
 				#calculate output for layer sequential input s
 
 				if(enforceTcontiguityConstraints):
 					AseqInput, TMinSeqInputThresholded, TMaxSeqInputThresholded = TcontiguitySequentialInputConstrainAseqInput(l, s, AseqInput, TMinSeqInput, TMaxSeqInput)
-				
-				#printAverage(AseqInputTthresholded, "AseqInputTthresholded", 3)	
-				#if(enforceTcontiguityConstraints):		
-					#printAverage(TMinSeqInputThresholded, "TMinSeqInputThresholded", 3)
-					#printAverage(TMaxSeqInputThresholded, "TMaxSeqInputThresholded", 3)
 
 				#take any active and Tthreshold valid sub input:
 				#CHECKTHIS - for performTindependentFunctionOfSubInputs?; consider adding performFunctionOfSubInputsWeighted:Wseq/Bseq option
@@ -353,17 +314,9 @@ def neuralNetworkPropagationSANI(x):
 				else:
 					ZseqHypothetical = AseqInput
 				
-				#printAverage(ZseqHypothetical, "ZseqHypothetical", 3)
-				#printAverage(VseqBool, "VseqBool", 3)			
-				#printAverage(ZseqHypothetical, "ZseqHypothetical", 3)	
-				#print("VseqBool = ", VseqBool.shape)
-				#print("ZseqHypothetical = ", ZseqHypothetical.shape)
-				
 				#apply sequential validation matrix
 				ZseqHypothetical = tf.math.logical_and(VseqBool, ZseqHypothetical)
-				
-				#printAverage(ZseqHypothetical, "ZseqHypothetical (2)", 3)
-				
+								
 				#threshold output/check output threshold
 				_, ZseqPassThresold = sequentialActivationFunction(ZseqHypothetical)
 				
@@ -414,12 +367,7 @@ def neuralNetworkPropagationSANI(x):
 				Vseq[generateParameterNameSeq(l, s, "Vseq")] = VseqUpdated
 
 				sequentialActivationFound[generateParameterName(l, "sequentialActivationFound")] = tf.math.logical_or(sequentialActivationFound[generateParameterName(l, "sequentialActivationFound")], ZseqPassThresold)
-											
-				#printAverage(ZseqPassThresold, "ZseqPassThresold", 3)
-				#printAverage(VseqUpdated, "VseqUpdated", 3)
-				#printAverage(ZseqUpdated, "ZseqUpdated", 3)	
-				#printAverage(Zseq[generateParameterNameSeq(l, s, "Zseq")], "Zseq", 3)
-
+										
 				if(s == numberOfSequentialInputs-1):
 					ZseqLast = ZseqUpdated
 					AseqLast = AseqUpdated
@@ -427,8 +375,6 @@ def neuralNetworkPropagationSANI(x):
 					if(enforceTcontiguityConstraints):
 						TMaxSeqLast = TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")]
 						TMinSeqLast = TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")]
-						#printAverage(TMaxSeqLast, "TMaxSeqLast", 3)
-						#printAverage(TMinSeqLast, "TMinSeqLast", 3)
 					
 				recordActivitySequentialInput(l, s, ZseqPassThresold)			
 				
@@ -453,7 +399,7 @@ def neuralNetworkPropagationSANI(x):
 	ZlastLayer = Z[generateParameterName(numberOfLayers, "Z")]
 	if(useLearningRuleBackpropagation):
 		ZlastLayer = tf.dtypes.cast(ZlastLayer, tf.float32)
-		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead)	
+		pred = SANItf2_algorithmSANIoperations.generatePrediction(ZlastLayer, Whead, applySoftmax=(not vectorisedOutput))	
 	else:
 		if(enforceTcontiguityConstraints):
 			ZlastLayer = TcontiguityCalculateOutput(ZlastLayer)

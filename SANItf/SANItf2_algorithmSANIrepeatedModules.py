@@ -69,7 +69,7 @@ if(useLearningRuleBackpropagation):
 #		if(performFunctionOfSubInputsWeighted):
 #			Wseq = {}	#weights matrix
 #			Bseq = {}	#biases vector
-#	if(performSummationOfSequentialInputsWeighted):
+#	if(performFunctionOfSequentialInputsWeighted):
 #		W = {}	#weights matrix
 #		B = {}	#biases vector
 	
@@ -151,7 +151,7 @@ def neuralNetworkPropagationSANI(x):
 	#Q
 	#Z	#neuron activation function input (dim: batchSize*n_h[l])
 	#A	#neuron activation function output (dim: batchSize*n_h[l])
-	#if(performSummationOfSequentialInputsWeighted):	
+	#if(performFunctionOfSequentialInputsWeighted):	
 		#W	(dim: numberOfSequentialInputs*n_h[l])
 		
 	#combination vars (multilayer);
@@ -160,20 +160,20 @@ def neuralNetworkPropagationSANI(x):
 
 	#combination vars (per layer);		
 	#if(allowMultipleSubinputsPerSequentialInput):
-		#if(performSummationOfSequentialInputs):
+		#if(performFunctionOfSequentialInputs):
 			#these are all used for different methods of sequential input summation:
-			#if(performSummationOfSequentialInputsWeighted):
-				#if(performSummationOfSubInputsNonlinear):
+			#if(performFunctionOfSequentialInputsWeighted):
+				#if(performFunctionOfSubInputsNonlinear):
 					#AseqWeightedSum	#(dim: batchSize*n_h[l])
 				#else:
 					#ZseqWeightedSum	#(dim: batchSize*n_h[l])
 			#else:
-				#if(performSummationOfSubInputsNonlinear):
+				#if(performFunctionOfSubInputsNonlinear):
 					#AseqSum	#(dim: batchSize*n_h[l])
 				#else:
 					#ZseqSum	#(dim: batchSize*n_h[l])
 	#else:
-		#if(performSummationOfSequentialInputsWeighted):
+		#if(performFunctionOfSequentialInputsWeighted):
 			#AseqInputWeightedSum	#(dim: batchSize*n_h[l])	#aka ZseqWeightedSum
 
 	#Tcontiguity vars;
@@ -210,11 +210,10 @@ def neuralNetworkPropagationSANI(x):
 		
 		#declare variables used across all sequential input of neuron
 		#primary vars;
-		if(l == 1):
-			if(supportSkipLayers):
+		if(supportSkipLayers):
+			if(l == 1):
 				AprevLayerAll = AprevLayer	#x
-		else:
-			if(supportSkipLayers):
+			else:
 				AprevLayerAll = tf.concat([AprevLayerAll, AprevLayer], 1)
 		if(enforceTcontiguityConstraints):
 			tMin, tMid, tMax, tMinLayerAll, tMidLayerAll, tMaxLayerAll = TcontiguityLayerInitialiseTemporaryVars(l)
@@ -223,20 +222,20 @@ def neuralNetworkPropagationSANI(x):
 		if(enforceTcontiguityConstraints):
 			tMidSeqSum = tf.zeros([batchSize, n_h[l]], tf.int32)
 		if(allowMultipleSubinputsPerSequentialInput):
-			if(performSummationOfSequentialInputs):
+			if(performFunctionOfSequentialInputs):
 				#these are all used for different methods of sequential input summation:
-				if(performSummationOfSequentialInputsWeighted):
-					if(performSummationOfSubInputsNonlinear):
+				if(performFunctionOfSequentialInputsWeighted):
+					if(performFunctionOfSubInputsNonlinear):
 						AseqWeightedSum = tf.zeros([batchSize, n_h[l]], tf.float32)
 					else:
 						ZseqWeightedSum = tf.zeros([batchSize, n_h[l]], tf.float32)
 				else:
-					if(performSummationOfSubInputsNonlinear):
+					if(performFunctionOfSubInputsNonlinear):
 						AseqSum = tf.zeros([batchSize, n_h[l]], tf.float32)
 					else:
 						ZseqSum = tf.zeros([batchSize, n_h[l]], tf.float32)
 		else:
-			if(performSummationOfSequentialInputsWeighted):
+			if(performFunctionOfSequentialInputsWeighted):
 				AseqInputWeightedSum = tf.zeros([batchSize, n_h[l]], tf.float32)
 			
 		for s in range(numberOfSequentialInputs):
@@ -247,7 +246,6 @@ def neuralNetworkPropagationSANI(x):
 			if(useSparseTensors):
 				if(useMultipleSubinputsPerSequentialInput):
 					numberSubinputsPerSequentialInput = SANItf2_algorithmSANIoperations.calculateNumberSubinputsPerSequentialInputSparseTensors(l, s)
-					#print("numberSubinputsPerSequentialInput = ", numberSubinputsPerSequentialInput)
 
 			#calculate validation matrix based upon sequentiality requirements
 			if(s == 0):
@@ -265,7 +263,6 @@ def neuralNetworkPropagationSANI(x):
 			if(enforceTcontiguityConstraints):
 				tMinSeq, tMidSeq, tMaxSeq, tMinSeqTest, tMidSeqTest, tMaxSeqTest = TcontiguitySequentialInputInitialiseTemporaryVars(l, s, tMinLayerAll, tMidLayerAll, tMaxLayerAll, tMin, tMid, tMax, tMinSeqPrev, tMidSeqPrev, tMaxSeqPrev)
 				
-			#print("tsLxSx2" + str(tf.timestamp(name="tsLxSx2")))
 			if(s > 0):
 				if(enforceTcontiguityConstraints):
 					Vseq = TcontiguitySequentialInputInitialiseValidationMatrix(l, s, VseqPrevTest, tMinSeqTest, tMidSeqTest, tMaxSeqTest)
@@ -294,7 +291,7 @@ def neuralNetworkPropagationSANI(x):
 			else:
 				AseqInput = tf.multiply(VseqFloat, AseqInput)
 
-			if(performSummationOfSequentialInputsWeighted):
+			if(performFunctionOfSequentialInputsWeighted):
 				multiples = tf.constant([batchSize,1], tf.int32)
 				Wtiled = tf.tile(tf.reshape(W[generateParameterName(l, "W")][s], [1, n_h[l]]), multiples)
 					
@@ -317,8 +314,6 @@ def neuralNetworkPropagationSANI(x):
 							ZseqIndex = tf.math.argmax(AseqInputWeighted, axis=1)
 					else:
 						if(performFunctionOfSubInputsWeighted):
-							#print("AseqInput = ", AseqInput.shape)
-							#print("Wseq.shape = ", Wseq[generateParameterNameSeq(l, s, "Wseq")].shape)
 							AseqInputReshaped = AseqInput	#(batchSize, previousLayerFeaturesUsed, layerNeurons)
 							AseqInputReshaped = tf.transpose(AseqInputReshaped, [2, 0, 1])	#layerNeurons, batchSize, previousLayerFeaturesUsed
 							WseqReshaped = Wseq[generateParameterNameSeq(l, s, "Wseq")]	#previousLayerFeaturesUsed, layerNeurons
@@ -344,15 +339,15 @@ def neuralNetworkPropagationSANI(x):
 					
 				Aseq, ZseqPassThresold = sequentialActivationFunction(Zseq)
 				
-				if(performSummationOfSequentialInputs):
+				if(performFunctionOfSequentialInputs):
 					#these are all used for different methods of sequential input summation
-					if(performSummationOfSubInputsNonlinear):
+					if(performFunctionOfSubInputsNonlinear):
 						AseqSum = tf.add(AseqSum, Aseq)
 					else:
 						ZseqSum = tf.add(ZseqSum, Zseq)
-					if(performSummationOfSequentialInputsWeighted):
+					if(performFunctionOfSequentialInputsWeighted):
 						#apply weights to input of neuron sequential input
-						if(performSummationOfSubInputsNonlinear):
+						if(performFunctionOfSubInputsNonlinear):
 							AseqWeighted = tf.multiply(Aseq, Wtiled)
 							AseqWeightedSum = tf.math.add(AseqWeightedSum, AseqWeighted)	
 						else:
@@ -361,7 +356,7 @@ def neuralNetworkPropagationSANI(x):
 			else:
 				Zseq = AseqInput	
 				Aseq, ZseqPassThresold = sequentialActivationFunction(Zseq)
-				if(performSummationOfSequentialInputsWeighted):
+				if(performFunctionOfSequentialInputsWeighted):
 					AseqInputWeighted = tf.multiply(AseqInput, Wtiled)
 					AseqInputWeightedSum = tf.add(AseqInputWeightedSum, AseqInputWeighted)
 			
@@ -388,26 +383,37 @@ def neuralNetworkPropagationSANI(x):
 			
 		#calculate A (output) matrix of current layer		
 		if(allowMultipleSubinputsPerSequentialInput):
-			if(performSummationOfSequentialInputs):
-				if(performSummationOfSequentialInputsWeighted):
-					if(performSummationOfSubInputsNonlinear):
+			if(performFunctionOfSequentialInputs):
+				if(performFunctionOfSequentialInputsWeighted):
+					if(performFunctionOfSubInputsNonlinear):
 						Z = AseqWeightedSum			
 					else:
 						Z = ZseqWeightedSum			
 				else:
-					if(performSummationOfSubInputsNonlinear):
+					if(performFunctionOfSubInputsNonlinear):
 						Z = AseqSum			
 					else:
 						Z = ZseqSum
 				if(sequentialInputCombinationModeSummationAveraged):
 					Z = Z/numberOfSequentialInputs
-				if(performSummationOfSequentialInputsNonlinear):
+				if(performFunctionOfSequentialInputsNonlinear):
 					A = activationFunction(Z)
 				else:
 					A = Z
-				if(performSummationOfSequentialInputsVerify):
+				if(performFunctionOfSequentialInputsVerify):
 					Z = tf.multiply(Z, tf.dtypes.cast(VseqLast, tf.float32))
 					A = tf.multiply(A, tf.dtypes.cast(VseqLast, tf.float32))
+					
+				#!performFunctionOfSequentialInputsSummation & performFunctionOfSequentialInputsWeighted; mathemetically equivalent alternate calculation method:
+				#Aseq: batchSize, layerNeurons;	for each s
+				#AseqReshaped: layerNeurons, batchSize, numberOfSequentialInputs
+				#W: numberOfSequentialInputs,layerNeurons
+				#Wreshaped: layerNeurons, numberOfSequentialInputs, 1
+				#Z = tf.matmul(AseqReshaped, Wreshaped)	#layerNeurons, batchSize, 1
+				#Z = tf.squeeze(Z, axis=2)	#layerNeurons, batchSize
+				#Z = tf.transpose(Z, [1, 0])	#batchSize, layerNeurons
+				#Z = tf.add(Z, B[generateParameterName(l, "B")])	#batchSize, layerNeurons
+				#A = activationFunction(Z)	#batchSize, layerNeurons
 			else:
 				ZseqLast = Zseq
 				AseqLast = Aseq
@@ -415,10 +421,10 @@ def neuralNetworkPropagationSANI(x):
 				Z = ZseqLast
 				A = AseqLast
 		else:
-			if(performSummationOfSequentialInputsWeighted):
+			if(performFunctionOfSequentialInputsWeighted):
 				#Z = tf.add(tf.matmul(AseqAll, W[generateParameterName(l, "W")]), B[generateParameterName(l, "B")])
 				Z = AseqInputWeightedSum
-				if(performSummationOfSequentialInputsNonlinear):
+				if(performFunctionOfSequentialInputsNonlinear):
 					A = activationFunction(Z)
 				else:
 					A = Z
@@ -432,7 +438,7 @@ def neuralNetworkPropagationSANI(x):
 		AprevLayer = A
 
 	if(useLearningRuleBackpropagation):
-		pred = SANItf2_algorithmSANIoperations.generatePrediction(Z, Whead)
+		pred = SANItf2_algorithmSANIoperations.generatePrediction(Z, Whead, applySoftmax=(not vectorisedOutput))
 	else:
 		pred = tf.nn.softmax(Z)
 	

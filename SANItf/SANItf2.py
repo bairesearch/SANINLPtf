@@ -213,43 +213,66 @@ def executeOptimisation(batchIndex, x, y, datasetNumClasses, numberOfLayers, opt
 	Wseqlist = []
 	Bseqlist = []
 	WheadList = []
+	
 	WheadList.append(SANItf2_algorithm.Whead)
-	for l1 in range(1, numberOfLayers+1):
-		if(SANItf2_algorithmSANIglobalDefs.performSummationOfSequentialInputsWeighted):
-			Wlist.append(SANItf2_algorithm.W[generateParameterName(l1, "W")])
-			Blist.append(SANItf2_algorithm.B[generateParameterName(l1, "B")])
-		if(SANItf2_algorithmSANIglobalDefs.performFunctionOfSubInputsWeighted):
-			if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
-				if(SANItf2_algorithmSANIglobalDefs.supportFeedback):
-					l2Max = numberOfLayers
+	if(not SANItf2_algorithmSANIglobalDefs.debugTrainLastLayerOnly):	
+		for l1 in range(1, numberOfLayers+1):
+			if(SANItf2_algorithmSANIglobalDefs.performFunctionOfSequentialInputsWeighted):
+				Wlist.append(SANItf2_algorithm.W[generateParameterName(l1, "W")])
+				Blist.append(SANItf2_algorithm.B[generateParameterName(l1, "B")])
+			if(SANItf2_algorithmSANIglobalDefs.performFunctionOfSubInputsWeighted):
+				if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
+					if(SANItf2_algorithmSANIglobalDefs.supportFeedback):
+						l2Max = numberOfLayers
+					else:
+						l2Max = l1-1
+					if(SANItf2_algorithmSANIglobalDefs.supportSkipLayers):
+						l2Min = 0
+					else:
+						l2Min = l1-1
+					for l2 in range(l2Min, l2Max+1):
+						for s in range(SANItf2_algorithmSANIglobalDefs.numberOfSequentialInputs):
+							Wseqlist.append(SANItf2_algorithm.Wseq[generateParameterNameSeqSkipLayers(l1, l2, s, "Wseq")])
+							if(l2 == l2Min):
+								Bseqlist.append(SANItf2_algorithm.Bseq[generateParameterNameSeq(l1, s, "Bseq")])	
 				else:
-					l2Max = l1-1
-				for l2 in range(0, l2Max+1):
 					for s in range(SANItf2_algorithmSANIglobalDefs.numberOfSequentialInputs):
-						Wseqlist.append(SANItf2_algorithm.Wseq[generateParameterNameSeqSkipLayers(l1, l2, s, "Wseq")])
-						if(l2 == 0):
-							Bseqlist.append(SANItf2_algorithm.Bseq[generateParameterNameSeq(l1, s, "Bseq")])	
-			else:
-				for s in range(SANItf2_algorithmSANIglobalDefs.numberOfSequentialInputs):
-					Bseqlist.append(SANItf2_algorithm.Bseq[generateParameterNameSeq(l1, s, "Bseq")])
-					Wseqlist.append(SANItf2_algorithm.Wseq[generateParameterNameSeq(l1, s, "Wseq")])
+						Bseqlist.append(SANItf2_algorithm.Bseq[generateParameterNameSeq(l1, s, "Bseq")])
+						Wseqlist.append(SANItf2_algorithm.Wseq[generateParameterNameSeq(l1, s, "Wseq")])
 				
 	trainableVariables = Wlist + Blist + Wseqlist + Bseqlist + WheadList
 
 	gradients = gt.gradient(loss, trainableVariables)
 	
-	if(SANItf2_algorithmSANIglobalDefs.printGradients):
+	numGradientTensors = len(gradients)
+	if(SANItf2_algorithmSANIglobalDefs.debugCountGradients):
 		#count num parameters;
+		print("numGradientTensors = ", numGradientTensors)
 		numParam = 0
+		numNonZeroGradients = 0
 		for t in gradients:
-			numParam = numParam + tf.size(t)	
+			numParam = numParam + tf.size(t)
+			numNonZeroGradients = numNonZeroGradients + tf.math.count_nonzero(t)
 		print("numParam = ", numParam)
+		print("numNonZeroGradients = ", numNonZeroGradients)
+		print("loss = ", loss)
+	if(SANItf2_algorithmSANIglobalDefs.debugPrintGradients):			
 		#verify gradients;
-		#print("gradients = ", gradients)
-		filename = "gradients.txt"
-		gradientsString = tf.strings.format("{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n", gradients, summarize=-1)
-		tf.io.write_file(filename, gradientsString)
-
+		if(SANItf2_algorithmSANIglobalDefs.supportFullConnectivity):
+			#too many parameters to print terminal (print to file instead)
+			filename = "gradients.txt"
+			gradientsStringPlaceHolder = numGradientTensors * "{}\n"
+			gradientsString = tf.strings.format(gradientsStringPlaceHolder, gradients, summarize=-1)
+			tf.io.write_file(filename, gradientsString)
+			exit(0)
+		else:
+			print("gradients = ", gradients)
+	if(SANItf2_algorithmSANIglobalDefs.debugTrainLastLayerOnly):
+		print("y = ", y)
+		print("gradients = ", gradients)
+		exit(0)
+		
+		
 	if(suppressGradientDoNotExistForVariablesWarnings):
 		optimizer.apply_gradients([
     		(grad, var) 
@@ -273,9 +296,14 @@ def calculatePropagationLoss(batchIndex, x, y, datasetNumClasses, numberOfLayers
 	target = y 
 	#print("pred = ", pred.shape) 
 	#print("target = ", target.shape) 
+	#print("target = ", target) 
 		
-	singleTarget = False
+	meanSquaredError = False
 	if(dataset == "POStagSentence"):
+		if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
+			meanSquaredError = False
+		else:
+			costCrossEntropyWithLogits = True	#already set
 		oneHotEncoded = True
 		singleTarget = False
 		#if(onlyAddPOSunambiguousInputToTrain):
@@ -283,16 +311,23 @@ def calculatePropagationLoss(batchIndex, x, y, datasetNumClasses, numberOfLayers
 		#print("oneHotEncoded")
 		target = tf.dtypes.cast(target, tf.float32)
 	elif(dataset == "POStagSequence"):
-		#print("POStagSequence")
+		if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
+			meanSquaredError = False
+		else:
+			costCrossEntropyWithLogits = True	#already set
 		oneHotEncoded = False
 		singleTarget = True
 		target = tf.dtypes.cast(target, tf.int32)
 	elif(dataset == "wikiXmlDataset"):
-		oneHotEncoded = True
+		if(SANItf2_algorithmSANIglobalDefs.useLearningRuleBackpropagation):
+			meanSquaredError = True	#SANItf2_algorithmSANIglobalDefs.vectorisedOutput
+		else:
+			costCrossEntropyWithLogits = True	#already set
+		oneHotEncoded = False	#N/A for vectorisedOutput
 		singleTarget = False
 		target = tf.dtypes.cast(target, tf.float32)
 				
-	loss = calculateLossCrossEntropy(pred, target, datasetNumClasses, costCrossEntropyWithLogits, oneHotEncoded=oneHotEncoded)
+	loss = calculateLossCrossEntropy(pred, target, datasetNumClasses, costCrossEntropyWithLogits, oneHotEncoded=oneHotEncoded, meanSquaredError=meanSquaredError)
 	
 	if(singleTarget):
 		acc = calculateAccuracy(pred, target)	#only valid for softmax class targets 
@@ -397,6 +432,7 @@ def trainMinimal():
 				display = True	
 			trainBatch(batchIndex, batchX, batchY, datasetNumClasses, numberOfLayers, optimizer, networkIndex, costCrossEntropyWithLogits, display)
 
+		print("neuralNetworkPropagationTest:")
 		pred = neuralNetworkPropagationTest(test_x, networkIndex)
 		print("Test Accuracy: %f" % (calculateAccuracy(pred, test_y)))
 

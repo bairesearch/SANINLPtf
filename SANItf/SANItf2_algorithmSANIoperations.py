@@ -22,7 +22,7 @@ import numpy as np
 import ANNtf2_globalDefs
 from SANItf2_algorithmSANIglobalDefs import *
 from ANNtf2_operations import * #generateParameterNameSeq, generateParameterName
-
+from numpy import sqrt
 
 #if(useLearningRuleBackpropagation):
 def generatePrediction(ZlastLayer, Whead, applySoftmax=True):
@@ -61,7 +61,7 @@ def defineTrainingParametersSANI(dataset, trainMultipleFiles):
 	else:
 		if(dataset == "wikiXmlDataset"):
 			#requires more memory
-			batchSize = 10
+			batchSize = 10	#default: 10
 			displayStep = 1
 		else:
 			batchSize = 100
@@ -76,10 +76,13 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 	global n_h
 	
 	layerSizeMultiplier = numberOfFeaturesPerWord
-	if(dataset == "wikiXmlDataset"):
-		firstLayerSize = numberOfFeaturesPerWord*10
+	if(debugUseSmallLayers):
+		firstLayerSize = numberOfFeaturesPerWord
 	else:
-		firstLayerSize = numberOfFeaturesPerWord*layerSizeMultiplier	#or datasetNumFeatures
+		if(dataset == "wikiXmlDataset"):
+			firstLayerSize = numberOfFeaturesPerWord*10
+		else:
+			firstLayerSize = numberOfFeaturesPerWord*layerSizeMultiplier	#or datasetNumFeatures
 	#if(supportFeedback):
 	#	layerSizeMultiplier2 = 2
 	#else:
@@ -154,7 +157,8 @@ def defineNetworkParametersSANI(num_input_neurons, num_output_neurons, datasetNu
 
 def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_cumulative, WRseq, WR, BR, Wseq, Bseq, W, B):
 
-	randomNormal = tf.initializers.RandomNormal()
+	randomNormal = tf.initializers.RandomNormal()	#mean=0.0, stddev=0.05
+	#randomXavier = tf.initializers.GlorotUniform()	#NO: randomNormalHigh; mean=0.0, stddev=0.1
 		
 	if(not ANNtf2_globalDefs.testHarness):	
 		if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
@@ -168,33 +172,33 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 						l2Min = 0
 					else:
 						l2Min = l1-1
-					for l2 in range(0, l2Max+1):
+					for l2 in range(l2Min, l2Max+1):
 
 						#print("\tl = " + str(l1))
 						#print("\tl2 = " + str(l2))
 						#print("\tn_h[l1] = " + str(n_h[l1]))
 						for s in range(numberOfSequentialInputs):
 							#print("\t\ts = " + str(s))
+							WseqTF = randomNormal([n_h[l2], n_h[l1]], dtype=tf.float32)
+							#WseqNP = np.random.normal(size=(n_h[l2], n_h[l1]))	#not equivalent to tensorflow RandomNormal weight initialisation
 							if(useFullConnectivitySparsity):
 								sparsityLevel = getSparsityLevelFullConnectivity(l1, l2, n_h)
-								probabilityUniform = np.random.uniform(low=0.0, high=1.0, size=(n_h[l2], n_h[l1]))	#0 to 1
-								sparsityPass = np.less(probabilityUniform, sparsityLevel)
-								sparsityPass = sparsityPass.astype(float)
-								WseqNP = np.random.normal(size=(n_h[l2], n_h[l1]))
-								WseqNP = np.multiply(WseqNP, sparsityPass)	#zero some weights
+								probabilityUniform = tf.random.uniform(shape=[n_h[l2], n_h[l1]], minval=0.0, maxval=1.0)	#0 to 1
+								sparsityPass = tf.less(probabilityUniform, sparsityLevel)
+								sparsityPass = tf.dtypes.cast(sparsityPass, tf.float32)
+								WseqTF = tf.multiply(WseqTF, sparsityPass)	#zero some weights
 								#print("sparsityPass = ", sparsityPass)
-								#print("WseqNP = ", WseqNP)
-							else:
-								WseqNP = np.random.normal(size=(n_h[l2], n_h[l1]))	#WseqNP = randomNormal([n_h[l2], n_h[l1]], dtype=tf.float32)
-							Wseq[generateParameterNameSeqSkipLayers(l1, l2, s, "Wseq")] = tf.Variable(WseqNP, dtype=tf.float32)
-							if(l2 == 0):
+								#print("WseqTF = ", WseqTF)
+								#print("tf.math.reduce_mean(WseqTF) = ", tf.math.reduce_mean(WseqTF))	#~0
+							Wseq[generateParameterNameSeqSkipLayers(l1, l2, s, "Wseq")] = tf.Variable(WseqTF)
+							if(l2 == l2Min):
 								Bseq[generateParameterNameSeq(l1, s, "Bseq")] = tf.Variable(tf.zeros(n_h[l1]), dtype=tf.float32)		#not currently trained
 
 							if(recordNetworkWeights):
 								if(recordSubInputsWeighted):
 									WRseq[generateParameterNameSeqSkipLayers(l1, l2, s, "Wseq")] = tf.Variable(tf.zeros([n_h[l2], n_h[l1]]), dtype=tf.float32)	
 
-					if(performSummationOfSequentialInputsWeighted):	
+					if(performFunctionOfSequentialInputsWeighted):	
 						W[generateParameterName(l1, "W")] = tf.Variable(randomNormal([numberOfSequentialInputs, n_h[l1]], dtype=tf.float32))	#randomNormal	#note the architecture of this weight matrix is different than a normal weight matrix. Every set of numberOfSequentialInputs (e.g. 3) represents a unique set of sequential neuron inputs (artificial neurons), and are mapped to an independent neuron (real neuron)
 						B[generateParameterName(l1, "B")] = tf.Variable(tf.zeros(n_h[l1]), tf.float32)
 
@@ -239,7 +243,10 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 								Cseq[generateParameterNameSeq(l, s, "Cseq")] = tf.Variable(CseqNP, dtype=tf.int32)
 
 							if(performFunctionOfSubInputsWeighted):
-								Wseq[generateParameterNameSeq(l, s, "Wseq")] = tf.Variable(randomNormal([numberSubinputsPerSequentialInput, n_h[l]], dtype=tf.float32))
+								#Wseq[generateParameterNameSeq(l, s, "Wseq")] = tf.Variable(randomXavier([numberSubinputsPerSequentialInput, n_h[l]], dtype=tf.float32))
+								n = numberSubinputsPerSequentialInput
+								Wseq[generateParameterNameSeq(l, s, "Wseq")] = tf.Variable(tf.random.uniform(shape=[numberSubinputsPerSequentialInput, n_h[l]], minval=-(1/sqrt(n)), maxval= 1/sqrt(n)))
+								#print("Wseq = ", Wseq[generateParameterNameSeq(l, s, "Wseq")])
 								Bseq[generateParameterNameSeq(l, s, "Bseq")] = tf.Variable(tf.zeros(n_h[l]), dtype=tf.float32)
 
 							if(recordNetworkWeights):
@@ -267,7 +274,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 								Wseq[generateParameterNameSeq(l, s, "Wseq")] = tf.Variable(randomNormal([n_h[l-1], n_h[l]], dtype=tf.float32))
 								Bseq[generateParameterNameSeq(l, s, "Bseq")] = tf.Variable(tf.zeros(n_h[l]), dtype=tf.float32)
 
-				if(performSummationOfSequentialInputsWeighted):	
+				if(performFunctionOfSequentialInputsWeighted):	
 					W[generateParameterName(l, "W")] = tf.Variable(randomNormal([numberOfSequentialInputs, n_h[l]], dtype=tf.float32))	#randomNormal	#note the architecture of this weight matrix is different than a normal weight matrix. Every set of numberOfSequentialInputs (e.g. 3) represents a unique set of sequential neuron inputs (artificial neurons), and are mapped to an independent neuron (real neuron)
 					B[generateParameterName(l, "B")] = tf.Variable(tf.zeros(n_h[l]), tf.float32)
 
@@ -332,6 +339,7 @@ def defineNeuralNetworkParametersSANI(n_h, numberOfLayers, Cseq, CseqLayer, n_h_
 			print("error: (ANNtf2_globalDefs.testHarness)) requires algorithmSANI=sharedModulesBinary")
 			exit()	
 
+	
 def getSparsityLevelFullConnectivity(l, l2, n_h):
 	if(useFullConnectivitySparsity):
 		if(firstLayerFullConnectivity):

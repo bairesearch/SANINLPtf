@@ -66,18 +66,23 @@ def printAverage(tensor, tensorName, indentation):
 		indentationString = indentationString + "\t"
 	print(indentationString + tensorName + "Average: %f" % (tensorAverage))
 
-def calculateLossCrossEntropy(y_pred, y_true, datasetNumClasses, costCrossEntropyWithLogits=False, oneHotEncoded=False, reduceMean=True):
+def calculateLossCrossEntropy(y_pred, y_true, datasetNumClasses, costCrossEntropyWithLogits=False, oneHotEncoded=False, reduceMean=True, meanSquaredError=False):
+	batchSize = y_pred.shape[0]
 	if(costCrossEntropyWithLogits):
 		cost = tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.squeeze(y_pred), labels=tf.cast(y_true, tf.float32))
 		if(reduceMean):
-			cost = tf.reduce_mean(cost)
+			cost = tf.reduce_sum(cost)/batchSize
+	elif(meanSquaredError):
+		cost = tf.math.squared_difference(y_pred, y_true)	#meansquare error loss function
+		if(reduceMean):
+			cost = tf.math.reduce_mean(cost)	
 	else:
 		if(not oneHotEncoded):
 			y_true = tf.one_hot(y_true, depth=datasetNumClasses)
 		y_pred = tf.clip_by_value(y_pred, 1e-9, 1.)
 		cost = -(y_true * tf.math.log(y_pred))
 		if(reduceMean):
-			cost = tf.reduce_sum(cost)
+			cost = tf.reduce_sum(cost)/batchSize
 	
 	return cost
 

@@ -37,19 +37,29 @@ dataset = "wikiXmlDataset"	#high first hidden layer connectivity is required
 printIO = False
 printStatus = False
 printGraphVisualisation = False	#tensorflow requires autograph compatible functions for visualisation (dynamic computational graphs defined through eager execution not supported)	#incomplete; requires to convert tensor dynamic initialisations to static initialisations via (unavailable) python preprocessor definitions
-printGradients = False	#test backpropagation through SANI
-debugTrainSingleBatch = False	#test paramater optimisation by repeatedly training a single batch only
+
+debugActivationNormalisation = False	#verify activation/strength across layers
+debugTrainSingleBatch = True	#test paramater optimisation by repeatedly training a single batch only
+debugPrintGradients = False	#test backpropagation through SANI
+debugCountGradients = False
+debugTrainLastLayerOnly = False	#train last layer only
 debugUseSmallSequenceDataset = True	#increases performance during development	#eg data-POStagSentence-smallBackup
 debugUseSmallSentenceLengths = False	#increases performance during development	#eg data-simple-POStagSentence-smallBackup	#Preconditions: requires dataset with at least 2 sentences of size < limitSentenceLengthsSize; for test/train split
 debugUseSmallBatchSize = False	#use batchSize=1
+debugUseSmallLayers = False	#small number of neurons per layer (not functional)
 
+if(debugActivationNormalisation):
+	printStatus = True
+	debugUseSmallLayers = True
+	debugUseSmallBatchSize = True
+	
 #parameter configuration (all algorithmSANI):
-activationFunctionThreshold	= 0.0	#default: 0.0	#>=0: reduces probability of neural sequential input firing
 useLearningRuleBackpropagation = True	#optional (untested)
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	useTcontiguity = False	#mandatory false (not supported)
-	useSkipLayers = True	#mandatory (implied true)
+	useSkipLayers = False	#optional (orig: True)
 	useMultipleSubinputsPerSequentialInput = True	#mandatory (implied true)
+	activationFunctionThreshold	= 0.0	#default: 0.0	#>=0: reduces probability of neural sequential input firing	#not used
 else:
 	useTcontiguity = False	#optional (orig: True)
 	useSkipLayers = False	#optional (orig: True)
@@ -90,7 +100,7 @@ else:
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 	supportFullConnectivity = True	#mandatory - full connectivity between layers	
 	if(supportFullConnectivity):
-		useFullConnectivitySparsity = True	#sparsity is defined by zeroing fully connected weights 
+		useFullConnectivitySparsity = False	#sparsity is defined by zeroing fully connected weights 
 		if(useFullConnectivitySparsity):
 			probabilityOfActiveConnection = 0.1	#1-sparsityLevel
 		supportFeedback = False	#optional 
@@ -291,31 +301,31 @@ if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):
 		
 	performFunctionOfSubInputsWeighted = True	#mandatory (implied)
 	if(performThresholdOfSubInputsNonlinear):
-		performSummationOfSubInputsNonlinear = True		#default: apply non-linear activation function to sequential input (use Aseq)
+		performFunctionOfSubInputsNonlinear = True		#default: apply non-linear activation function to sequential input (use Aseq)
 	else:
-		performSummationOfSubInputsNonlinear = False
+		performFunctionOfSubInputsNonlinear = False
 	
-	performSummationOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
-	if(performSummationOfSequentialInputs):
-		performSummationOfSequentialInputsWeighted = False	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
-		if(performSummationOfSequentialInputsWeighted):
+	performFunctionOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
+	if(performFunctionOfSequentialInputs):
+		performFunctionOfSequentialInputsWeighted = False	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
+		if(performFunctionOfSequentialInputsWeighted):
 			sequentialInputCombinationModeSummationAveraged = False	#mandatory
-			if(performSummationOfSubInputsNonlinear):
-				performSummationOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Aseq multiplied by a matrix
+			if(performFunctionOfSubInputsNonlinear):
+				performFunctionOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Aseq multiplied by a matrix
 			else:
-				performSummationOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
+				performFunctionOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
 		else:
 			sequentialInputCombinationModeSummationAveraged = True	#default: average values across seq (else sum)
-			if(performSummationOfSubInputsNonlinear):
-				performSummationOfSequentialInputsNonlinear = False	#default: !apply non-linear activation function neuron: use A value from typically all Aseq summed/averaged			
+			if(performFunctionOfSubInputsNonlinear):
+				performFunctionOfSequentialInputsNonlinear = False	#default: !apply non-linear activation function neuron: use A value from typically all Aseq summed/averaged			
 			else:
-				performSummationOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
+				performFunctionOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
 	else:
 		pass	#if(performSummationOfSubInputsBinary): simple thresholding function (activations are normalised to 1.0)
 elif(algorithmSANI == "sharedModulesBinary"):		
 	performFunctionOfSubInputsWeighted = False	#mandatory
 	useLastSequentialInputOnly = True	#implied variable (not used)
-	performSummationOfSequentialInputsWeighted = False	#mandatory (implied)
+	performFunctionOfSequentialInputsWeighted = False	#mandatory (implied)
 elif(algorithmSANI == "sharedModules"):
 	performThresholdOfSubInputsNonlinear = True	#default: apply non-linear activation function to sequential input (use Aseq)
 	if(not performThresholdOfSubInputsNonlinear):
@@ -339,48 +349,48 @@ elif(algorithmSANI == "sharedModules"):
 			#performFunctionOfSubInputsAverage = True
 				
 		if(performThresholdOfSubInputsNonlinear):
-			performSummationOfSubInputsNonlinear = True
+			performFunctionOfSubInputsNonlinear = True
 		else:
-			performSummationOfSubInputsNonlinear = False		
+			performFunctionOfSubInputsNonlinear = False		
 
-		performSummationOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
-		if(performSummationOfSequentialInputs):
-			performSummationOfSequentialInputsVerify = True	#verify that all (last) sequential inputs are activated	#CHECKTHIS
-			performSummationOfSequentialInputsWeighted = False	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
-			if(performSummationOfSequentialInputsWeighted):
+		performFunctionOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
+		if(performFunctionOfSequentialInputs):
+			performFunctionOfSequentialInputsVerify = True	#verify that all (last) sequential inputs are activated	#CHECKTHIS
+			performFunctionOfSequentialInputsWeighted = False	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
+			if(performFunctionOfSequentialInputsWeighted):
 				sequentialInputCombinationModeSummationAveraged = False	#mandatory
-				if(performSummationOfSubInputsNonlinear):
-					performSummationOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Aseq multiplied by a matrix
+				if(performFunctionOfSubInputsNonlinear):
+					performFunctionOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Aseq multiplied by a matrix
 				else:
-					performSummationOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
+					performFunctionOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
 			else:
 				sequentialInputCombinationModeSummationAveraged = True	#default: average values across seq (else sum)
-				if(performSummationOfSubInputsNonlinear):
-					performSummationOfSequentialInputsNonlinear = False	#default: !apply non-linear activation function neuron: use A value from typically all Aseq summed/averaged			
+				if(performFunctionOfSubInputsNonlinear):
+					performFunctionOfSequentialInputsNonlinear = False	#default: !apply non-linear activation function neuron: use A value from typically all Aseq summed/averaged			
 				else:
-					performSummationOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
+					performFunctionOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
 		else:
 			useLastSequentialInputOnly = True	#implied variable (not used)
 
 	else:
 		performFunctionOfSubInputsWeighted = False
 
-		#required irrespective of performFunctionOfSubInputsSummation since performSummationOfSequentialInputs code tests for performSummationOfSubInputsNonlinear instead of performThresholdOfSubInputsNonlinear:
+		#required irrespective of performFunctionOfSubInputsSummation since performFunctionOfSequentialInputs code tests for performFunctionOfSubInputsNonlinear instead of performThresholdOfSubInputsNonlinear:
 		if(performThresholdOfSubInputsNonlinear):
-			performSummationOfSubInputsNonlinear = True	
+			performFunctionOfSubInputsNonlinear = True	
 		else:
-			performSummationOfSubInputsNonlinear = False
+			performFunctionOfSubInputsNonlinear = False
 				
-		performSummationOfSequentialInputs = True
-		if(performSummationOfSequentialInputs):
-			performSummationOfSequentialInputsVerify = True	#verify that all (last) sequential inputs are activated	#CHECKTHIS
-			performSummationOfSequentialInputsWeighted = True	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
-			if(performSummationOfSequentialInputsWeighted):
+		performFunctionOfSequentialInputs = True
+		if(performFunctionOfSequentialInputs):
+			performFunctionOfSequentialInputsVerify = True	#verify that all (last) sequential inputs are activated	#CHECKTHIS
+			performFunctionOfSequentialInputsWeighted = True	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
+			if(performFunctionOfSequentialInputsWeighted):
 				sequentialInputCombinationModeSummationAveraged = False	#mandatory
-				performSummationOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
+				performFunctionOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
 			else:
 				sequentialInputCombinationModeSummationAveraged = True	#default: average values across seq (else sum)
-				performSummationOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
+				performFunctionOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
 		else:
 			useLastSequentialInputOnly = True	#implied variable (not used)
 elif(algorithmSANI == "repeatedModules"): 
@@ -388,7 +398,7 @@ elif(algorithmSANI == "repeatedModules"):
 	if(not performThresholdOfSubInputsNonlinear):
 		sequentialInputActivationThreshold = 0.1	#CHECKTHIS (requires optimisation)	#should this be used with backprop?
 		
-	performSummationOfSequentialInputsWeighted = False	#initialise
+	performFunctionOfSequentialInputsWeighted = False	#initialise
 	if(allowMultipleSubinputsPerSequentialInput):
 		#[multiple subinputs per sequential input] #each sequential input can detect a pattern of activation from the previous layer
 
@@ -406,26 +416,26 @@ elif(algorithmSANI == "repeatedModules"):
 			#performFunctionOfSubInputsAverage = True
 			
 		if(performThresholdOfSubInputsNonlinear):
-			performSummationOfSubInputsNonlinear = True
+			performFunctionOfSubInputsNonlinear = True
 		else:
-			performSummationOfSubInputsNonlinear = False	
+			performFunctionOfSubInputsNonlinear = False	
 
-		performSummationOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
-		if(performSummationOfSequentialInputs):
-			performSummationOfSequentialInputsVerify = True	#verify that all (last) sequential inputs are activated	#CHECKTHIS
-			performSummationOfSequentialInputsWeighted = False	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
-			if(performSummationOfSequentialInputsWeighted):
+		performFunctionOfSequentialInputs = True	#optional (else just take the last Zseq/Aseq values)
+		if(performFunctionOfSequentialInputs):
+			performFunctionOfSequentialInputsVerify = True	#verify that all (last) sequential inputs are activated	#CHECKTHIS
+			performFunctionOfSequentialInputsWeighted = False	#optional: multiply sequential input activations (Zseq/Aseq) by a matrix - otherwise just sum/average them together (or take a pass condition)
+			if(performFunctionOfSequentialInputsWeighted):
 				sequentialInputCombinationModeSummationAveraged = False	#mandatory
-				if(performSummationOfSubInputsNonlinear):
-					performSummationOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Aseq multiplied by a matrix
+				if(performFunctionOfSubInputsNonlinear):
+					performFunctionOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Aseq multiplied by a matrix
 				else:
-					performSummationOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
+					performFunctionOfSequentialInputsNonlinear = True	#default: apply non-linear activation function neuron: use A value from typically all Zseq multiplied by a matrix
 			else:
 				sequentialInputCombinationModeSummationAveraged = True	#default: average values across seq (else sum)
-				if(performSummationOfSubInputsNonlinear):
-					performSummationOfSequentialInputsNonlinear = False	#default: !apply non-linear activation function neuron: use A value from typically all Aseq summed/averaged			
+				if(performFunctionOfSubInputsNonlinear):
+					performFunctionOfSequentialInputsNonlinear = False	#default: !apply non-linear activation function neuron: use A value from typically all Aseq summed/averaged			
 				else:
-					performSummationOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
+					performFunctionOfSequentialInputsNonlinear = True 	#default: apply non-linear activation function neuron: use Z value from typically all Zseq summed/averaged
 		else:
 			useLastSequentialInputOnly = True	#implied variable (not used)
 		
@@ -438,13 +448,13 @@ elif(algorithmSANI == "repeatedModules"):
 
 		performIndependentSubInputValidation = False	#always False (ie false by definition because there is only 1 subinput per sequential input)
 
-		performSummationOfSequentialInputs = True
-		if(performSummationOfSequentialInputs):
-			performSummationOfSequentialInputsWeighted = True	#does backprop require to update weight matrix associated with sequential inputs?
-			performSummationOfSequentialInputsNonlinear = True
+		performFunctionOfSequentialInputs = True
+		if(performFunctionOfSequentialInputs):
+			performFunctionOfSequentialInputsWeighted = True	#does backprop require to update weight matrix associated with sequential inputs?
+			performFunctionOfSequentialInputsNonlinear = True
 		else:
-			performSummationOfSequentialInputsWeighted = False
-			performSummationOfSequentialInputsNonlinear = False
+			performFunctionOfSequentialInputsWeighted = False
+			performFunctionOfSequentialInputsNonlinear = False
 
 		if(enforceTcontiguityConstraints):
 			sequentialityMode = "default"
