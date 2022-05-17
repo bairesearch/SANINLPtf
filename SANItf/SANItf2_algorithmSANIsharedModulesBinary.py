@@ -582,7 +582,7 @@ def TcontiguityUpdateArrays(l, s, ZseqPassThresold, TMinSeqInputThresholded, TMa
 
 	#update parameter storage;
 	TMaxSeq[generateParameterNameSeq(l, s, "TMaxSeq")] = TMaxSeqUpdated
-	TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")] = TMinSeqUpdated				
+	TMinSeq[generateParameterNameSeq(l, s, "TMinSeq")] = TMinSeqUpdated
 	#printAverage(TMaxSeqUpdated, "TMaxSeqUpdated", 3)
 	#printAverage(TMinSeqUpdated, "TMinSeqUpdated", 3)
 

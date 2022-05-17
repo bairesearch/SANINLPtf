@@ -64,21 +64,7 @@ else:
 	useTcontiguity = False	#optional (orig: True)
 	useSkipLayers = False	#optional (orig: True)
 	useMultipleSubinputsPerSequentialInput = True	#optional
-	
-if((algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):
-	useReverseSequentialInputOrder = False	#initialise
-	if(useTcontiguity):
-		resetSequentialInputs = True	#likely mandatory (development conditions)
-		useReverseSequentialInputOrder = True	#likely mandatory (development conditions)
-	else:
-		resetSequentialInputs = False	#optional	#overwrites first input if valid and resets all sequential inputs
-		if(resetSequentialInputs):
-			useReverseSequentialInputOrder = True	#optional - required for resetSequentialInputsIfOnlyFirstInputValid	
 
-	overwriteSequentialInputs = False	#initialise		
-	if(not resetSequentialInputs):
-		overwriteSequentialInputs = True	#mandatory	#overwrites any valid sequential input it encounters
-				
 if(useMultipleSubinputsPerSequentialInput):
 	numberSubinputsPerSequentialInputDefault = 10	#default: 3
 useSequentialInputs = True
@@ -86,6 +72,25 @@ if(useSequentialInputs):
 	numberOfSequentialInputs = 2	#2	#3	#1 - no sequential input requirement enforced
 else:
 	numberOfSequentialInputs = 1
+	
+if((algorithmSANI == "sharedModulesBinary") or (algorithmSANI == "sharedModules")):
+	useReverseSequentialInputOrder = False	#initialise
+	resetSequentialInputs = False	#initialise
+	if(useTcontiguity):
+		resetSequentialInputs = True	#likely mandatory (development conditions)
+		useReverseSequentialInputOrder = True	#likely mandatory (development conditions)
+	else:
+		if(numberOfSequentialInputs > 2):	#reset 
+			resetSequentialInputs = True	#optional	#overwrites first input if valid and resets all sequential inputs	#guarantees that sequential input order is enforced
+			if(resetSequentialInputs):
+				useReverseSequentialInputOrder = True	#optional - required for resetSequentialInputsIfOnlyFirstInputValid	
+		#else:
+			#no advantage of resetSequentialInputs gained (especially with doNotResetNeuronOutputUntilAllSequentialInputsActivated)
+			
+	overwriteSequentialInputs = False	#initialise		
+	if(not resetSequentialInputs):
+		overwriteSequentialInputs = True	#mandatory	#overwrites any valid sequential input it encounters
+				
 
 
 if(algorithmSANI == "sharedModulesNonContiguousFullConnectivity"):

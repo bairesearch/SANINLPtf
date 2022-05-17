@@ -863,8 +863,8 @@ def TcontiguityUpdateArrays(l, s, ZseqPassThresold, TMinSeqInputThresholded, TMa
 	if(allowMultipleContributingSubinputsPerSequentialInput):
 		if((resetSequentialInputsTContiguity) and (s == 0)):
 			ZseqTadjustedThresholded = tf.multiply(ZseqHypotheticalTadjusted, tf.dtypes.cast(ZseqPassThresoldInt, tf.float32))
-			ZseqTadjustedUpdated = tf.multiply(ZseqTadjusted[generateParameterNameSeq(l, s, "ZseqTadjusted")], tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))
-			ZseqTadjustedUpdated = tf.add(ZseqTadjustedUpdated, ZseqTadjustedThresholded)
+			ZseqTadjustedUpdatedOld = tf.multiply(ZseqTadjusted[generateParameterNameSeq(l, s, "ZseqTadjusted")], tf.dtypes.cast(ZseqPassThresoldNotInt, tf.float32))
+			ZseqTadjustedUpdated = SANItf2_algorithmSANIoperations.updateTensorCells(ZseqTadjustedUpdatedOld, ZseqTadjustedThresholded)	#ZseqTadjustedUpdated = tf.add(ZseqTadjustedUpdated, ZseqTadjustedThresholded)
 			ZseqTadjusted[generateParameterNameSeq(l, s, "ZseqTadjusted")] = ZseqTadjustedUpdated
 
 	#update parameter storage;

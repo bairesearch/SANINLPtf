@@ -786,7 +786,7 @@ def generatePOSambiguityInfoUnambiguousPermutationArray(POSambiguityInfoUnambigu
 
 
 #limitSentenceLengths: eliminate smaller sentences from dataset (do not crop them)
-def loadDatasetType4(datasetFileNameX, limitSentenceLengths, limitSentenceLengthsSize, NLPsequentialInputTypeTrainWordVectors):
+def loadDatasetType4(datasetFileNameX, limitSentenceLengths, limitSentenceLengthsSize, NLPsequentialInputTypeTrainWordVectors, NLPsequentialInputTypeTokeniseWords=True):
 	
 	splitTextDatasetByWikiTags = True
 	
@@ -824,22 +824,25 @@ def loadDatasetType4(datasetFileNameX, limitSentenceLengths, limitSentenceLength
 					if(len(wordsText) > limitSentenceLengthsSize):
 						sentenceLengthCheck = False			
 				if(sentenceLengthCheck):
-					if(NLPsequentialInputTypeTrainWordVectors):
-						words = []
-						for wordIndex, word in enumerate(wordsText):
-							#print("\t\t\t\twordIndex = ", wordIndex)
-							charactersText = list(word)
-							characters = []
-							for characterIndex, character in enumerate(charactersText):
-								#print("\t\t\t\t\tcharacterIndex = ", characterIndex)
-								characters.append(character)	
-							words.append(characters)
-						sentence = words
-						sentences.append(sentence)
+					foundValidSentences = True
+					if(NLPsequentialInputTypeTokeniseWords):
+						if(NLPsequentialInputTypeTrainWordVectors):
+							words = []
+							for wordIndex, word in enumerate(wordsText):
+								#print("\t\t\t\twordIndex = ", wordIndex)
+								charactersText = list(word)
+								characters = []
+								for characterIndex, character in enumerate(charactersText):
+									#print("\t\t\t\t\tcharacterIndex = ", characterIndex)
+									characters.append(character)	
+								words.append(characters)
+							sentence = words
+							sentences.append(sentence)
+						else:
+							#print("wordsText = ", wordsText)
+							sentences.append(wordsText)
 					else:
-						foundValidSentences = True
-						#print("wordsText = ", wordsText)
-						sentences.append(wordsText)
+						sentences.append(sentence)
 			paragraphs.append(sentences)
 		articles.append(paragraphs)
 		
@@ -926,8 +929,7 @@ def generateWordVectorInputList(textContentList, NLPsequentialInputDimensions):
 	inputVectorList = []
 	for word in textContentList:
 		#print("word = ", word)
-		doc = spacyWordVectorGenerator(word)
-		wordVectorList = doc[0].vector	#verify type numpy
+		wordVectorList = getWordVector(word)
 		wordVector = np.array(wordVectorList)
 		#print("word = ", word, " wordVector = ", wordVector)
 		#print("wordVector.shape = ", wordVector.shape)
@@ -949,4 +951,25 @@ def cropAndPadWordVectorInputList(inputVectorList, maximumSentenceLength, paddin
 			inputVectorListCroppedPadded.append(wordVectorPadding)
 			
 	return inputVectorListCroppedPadded
+	
+def generateRandomisedIndexArray(indexFirst, indexLast, arraySize=None):
+	fileIndexArray = np.arange(indexFirst, indexLast+1, 1)
+	#print("fileIndexArray = " + str(fileIndexArray))
+	if(arraySize is None):
+		np.random.shuffle(fileIndexArray)
+		fileIndexRandomArray = fileIndexArray
+	else:
+		fileIndexRandomArray = random.sample(fileIndexArray.tolist(), arraySize)
+	
+	print("fileIndexRandomArray = " + str(fileIndexRandomArray))
+	return fileIndexRandomArray
+	
+def getWordVector(word):
+	return getWordVectorInContext(word, 0)
+
+def getWordVectorInContext(sentence, wordIndex):
+	doc = spacyWordVectorGenerator(sentence)
+	wordVector = doc[wordIndex].vector	#cpu: type numpy
+	return wordVector
+	
 	
